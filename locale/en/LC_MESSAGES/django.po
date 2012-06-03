@@ -1,0 +1,136 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2012-05-31 13:48+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: api.py:74
+#, python-format
+msgid "Saved %d file(s)"
+msgstr ""
+
+#: api.py:81
+msgid "File not found in post"
+msgstr ""
+
+#: api.py:94
+#, python-format
+msgid "Content uid=%s not found"
+msgstr ""
+
+#: api.py:97
+#, python-format
+msgid "You are not owner of Content uid=%s"
+msgstr ""
+
+#: api.py:112
+msgid "Changes saved"
+msgstr ""
+
+#: api.py:119
+msgid "Not implemented yet, sorry!"
+msgstr ""
+
+#: forms.py:14
+msgid "File"
+msgstr ""
+
+#: forms.py:14
+msgid "Select a file from your computer"
+msgstr ""
+
+#: forms.py:15
+msgid "Select a file from your computer, please!"
+msgstr ""
+
+#: forms.py:20
+msgid "Coordinates (lat,lon)"
+msgstr ""
+
+#: forms.py:34
+msgid "Coordinates must be in format \"dd.dddd,dd.dddd\"."
+msgstr ""
+
+#: forms.py:40 templates/content_base.html:89
+msgid "Quick search"
+msgstr ""
+
+#: forms.py:41
+msgid "Write at least 2 characters."
+msgstr ""
+
+#: views.py:239
+msgid "Form was saved successfully"
+msgstr ""
+
+#: templates/content_base.html:82
+msgid "Index"
+msgstr ""
+
+#: templates/content_base.html:83
+msgid "Upload"
+msgstr ""
+
+#: templates/content_base.html:84
+msgid "Upload many"
+msgstr ""
+
+#: templates/content_base.html:85
+msgid "Advanced search"
+msgstr ""
+
+#: templates/content_base.html:106
+msgid "Latest files"
+msgstr ""
+
+#: templates/content_edit.html:278
+msgid "Save"
+msgstr ""
+
+#: templates/content_edit.html:282
+msgid "Find current location"
+msgstr ""
+
+#: templates/content_html5upload.html:14
+msgid ""
+"\n"
+"<p>If you have HTML5 capable browser (Chrome, Safari 5+, Firefox 5+) you "
+"can\n"
+"upload multiple files at the same time by dragging them below from your file "
+"manager or other application\n"
+"or by clicking Add files... button.\n"
+"</p>\n"
+msgstr ""
+
+#: templates/content_html5upload.html:26
+msgid "Add files..."
+msgstr ""
+
+#: templates/content_html5upload.html:29
+msgid "Start upload"
+msgstr ""
+
+#: templates/content_html5upload.html:30
+msgid "Cancel upload"
+msgstr ""
+
+#: templates/content_html5upload.html:31
+msgid "Delete files"
+msgstr ""
+
+#: templates/content_upload.html:10
+msgid "Send"
+msgstr ""
