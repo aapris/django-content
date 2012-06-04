@@ -105,7 +105,7 @@ class Content(models.Model):
     "Timestamp when current Content was added to the system."
     updated = models.DateTimeField(auto_now=True)
     "Timestamp of last update of current Content."
-    opens = models.DateTimeField(default=datetime.datetime.now)
+    opens = models.DateTimeField(blank=True, null=True)
     "Timestamp when current Content is available for others than owner."
     expires = models.DateTimeField(blank=True, null=True)
     "Timestamp when current Content is not anymore available for others than owner."
