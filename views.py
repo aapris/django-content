@@ -85,7 +85,7 @@ def upload(request):
                 c.set_file(originalname, tmpname) # Save uploaded file to filesystem
                 c.get_type_instance() # Create thumbnail if it is supported
                 c.save()
-            return HttpResponseRedirect(reverse('edit', args=[c.uid]))
+            return HttpResponseRedirect(reverse('content:edit', args=[c.uid]))
     else:
         form = UploadForm(initial={}) # An unbound form
     return _render_to_response(request, 'content_upload.html', {
@@ -133,7 +133,7 @@ def api_upload(request):
             # FIXME: use reverse()
             response['Location'] = '/content/api/v1/content/%s/' % c.uid
             return response
-            #return HttpResponseRedirect(reverse('edit', args=[c.uid]))
+            #return HttpResponseRedirect(reverse('content:edit', args=[c.uid]))
         else:
             response = HttpResponse(status=204)
             return response
@@ -206,7 +206,7 @@ def edit(request, uid):
             msg = _(u'Form was saved successfully')
             messages.success(request, msg)
             new_object.save()
-            return HttpResponseRedirect(reverse('edit', args=[new_object.uid]))
+            return HttpResponseRedirect(reverse('content:edit', args=[new_object.uid]))
         #else:
         #    form = UploadForm(initial={}) # An unbound form
     else:
@@ -324,9 +324,9 @@ def instance(request, uid, width, height, action, ext):
         response["Content-Type"] = "image/jpeg"
         response["Content-Length"] = len(data)
         if 'attachment' in request.GET:
-            response["Content-disposition"] = "attachment; filename=%s-%s.jpg" % (c.originalfilename, c.uid)
-        # Use 'opens' time in Last-Modified header (cache_page uses caching page)
-        response['Last-Modified'] = c.opens.strftime('%a, %d %b %Y %H:%M:%S GMT')
+            response["Content-Disposition"] = "attachment; filename=%s-%s.jpg" % (c.originalfilename, c.uid)
+        # Use 'updated' time in Last-Modified header (cache_page uses caching page)
+        response['Last-Modified'] = c.updated.strftime('%a, %d %b %Y %H:%M:%S GMT')
         return response
     else:
         data = "Requested %s %s %s %s %s " % (c.mimetype, uid, width, height, ext)
@@ -335,8 +335,10 @@ def instance(request, uid, width, height, action, ext):
         response["Content-Length"] = len(data)
         return response
 
+from django.core.servers.basehttp import FileWrapper
+
 #@login_required
-@cache_page(60 * 60)
+#@cache_page(60 * 60)
 def original(request, uid):
     """
     Return original file.
@@ -347,14 +349,19 @@ def original(request, uid):
         c = Content.objects.get(uid=uid)
     except Content.DoesNotExist:
         raise Http404
-    # Return image if type is image or video
-    tmp = open(c.file.path, "rb")
-    data = tmp.read()
-    tmp.close()
-    response = HttpResponse()
-    response.write(data)
+    wrapper = FileWrapper(file(c.file.path))
+    response = HttpResponse(wrapper)
     response["Content-Type"] = c.mimetype
-    response["Content-Length"] = len(data)
+    response['Content-Length'] = os.path.getsize(c.file.path)
+    if 'attachment' in request.GET:
+        response["Content-Disposition"] = "attachment; filename=%s" % (c.originalfilename)
+    #tmp = open(c.file.path, "rb")
+    #data = tmp.read()
+    #tmp.close()
+    #response = HttpResponse()
+    #response.write(data)
+    #response["Content-Type"] = c.mimetype
+    #response["Content-Length"] = len(data)
     return response
 
 @login_required
