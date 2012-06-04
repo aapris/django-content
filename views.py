@@ -161,9 +161,9 @@ def html5upload(request):
             #generating json response array
             result.append({"name": originalname,
                            "size": c.filesize,
-                           "url": c.uid,
+                           "url": reverse('content:edit', args=[c.uid]),
                            "thumbnail_url": '/content/instance/%s-200x200.jpg' % c.uid,
-                           "delete_url": '/content/delete/%s' % c.uid,
+                           "delete_url": reverse('content:edit', args=[c.uid]),
                            "delete_type":"POST",})
         #print result
         response_data = json.dumps(result)
