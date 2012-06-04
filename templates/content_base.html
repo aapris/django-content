@@ -108,8 +108,8 @@ div.preview {
 <div class="preview">
  <a href="{% url content:edit object.uid %}">{% if object.thumbnail %}<img src="{% url content:instance uid=object.uid width='200' height='200' ext='jpg' %}" alt="{{ object.originalfilename }}"/>{% else  %}{{ object.originalfilename }}{% endif  %}</a><br/>
 {{ object.mimetype }} ({{ object.filesize|filesizeformat }})<br/>
-Original time: {{ object.filetime|date:'Y-m-d H:i:s'|default:'--' }}<br/>
-Added: {{ object.added|date:'Y-m-d H:i:s'|default:'--' }}
+{% trans "Original time" %}: {{ object.filetime|date:'Y-m-d H:i:s'|default:'--' }}<br/>
+{% trans "Added" %}: {{ object.created|date:'Y-m-d H:i:s'|default:'--' }}
 
 </div>
 {% endfor %}
