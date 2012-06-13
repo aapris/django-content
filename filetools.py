@@ -304,6 +304,8 @@ if __name__=='__main__':
         del info['exif']['JPEGThumbnail']
     #print info['exif']
     print info['exif'].keys()
+    print ('%(lat).6f,%(lon).6f' % (info)) if 'lat' in info else "No lat,lon"
+    sys.exit(0)
     # w, h, format, quality, rotate
     THUMBNAIL_PARAMETERS = (200, 200, 'JPEG', 80, 0)
     thumb = create_thumbnail(sys.argv[1], THUMBNAIL_PARAMETERS)
