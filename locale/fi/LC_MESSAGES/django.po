@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-05-31 13:48+0300\n"
-"PO-Revision-Date: 2012-05-31 13:55\n"
+"PO-Revision-Date: 2012-07-08 10:44\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"X-Translated-Using: django-rosetta 0.6.5\n"
+"X-Translated-Using: django-rosetta 0.6.8\n"
 
 #: api.py:74
 #, python-format
@@ -115,7 +115,7 @@ msgid ""
 "</p>\n"
 msgstr ""
 "\n"
-"<p>Jos käytät HTML5-yhteensopivaa selainta (Chrome, Safari 5+, Firefox 5+) voi lähettää useita tiedostoja samalla kerralla raahaamalla ne tiedostojenhallintasovellukseta ja tiputtamalla tämän tekstin alapuolelle tai klikkaamalla Add files... .nappia.\n"
+"<p>Jos käytät HTML5-yhteensopivaa selainta (Chrome, Safari 5+, Firefox 5+) voi lähettää useita tiedostoja samalla kerralla raahaamalla ne tiedostojenhallintasovelluksesta ja tiputtamalla tämän tekstin alapuolelle tai klikkaamalla \"Lisää tiedostoja...\" nappia.\n"
 "</p>\n"
 
 #: templates/content_html5upload.html:26
