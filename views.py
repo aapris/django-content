@@ -230,7 +230,7 @@ def search(request):
 def _get_placeholder_instance(c, text=None):
     imsize = (160, 80)
     immode = 'RGBA'
-    imfont = 'Arial.ttf'
+    imfont = os.path.join('mestadb', 'Arial.ttf')
     imfontsize = 22
     imtext = c.mimetype if text is None else text
     imtext = imtext.replace('/', ' ').split(' ')
