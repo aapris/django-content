@@ -201,9 +201,9 @@ class Content(models.Model):
         """
         if self.mimetype is None:
             return None
-        if self.mimetype.startswith("image"):
+        if self.mimetype.startswith("image") and self.image.thumbnail:
             return self.image.thumbnail
-        elif self.mimetype.startswith("video"):
+        elif self.mimetype.startswith("video") and self.video.thumbnail:
             return self.video.thumbnail
         else:
             return None
@@ -289,8 +289,10 @@ class Image(models.Model):
         # Set lat and lon if they exist in info and NOT yet in content
         if 'lat' in info and info['lat'] and self.content.point is None:
             self.content.point = Point(info['lon'], info['lat'])
-        if 'timestamp' in info and self.content.filetime is None:
-            self.content.filetime = time.strftime("%Y-%m-%d %H:%M:%S", info['timestamp'])
+        if 'datetime' in info and self.content.filetime is None:
+            self.content.filetime = info['datetime']
+        #elif 'timestamp' in info and self.content.filetime is None:
+        #    self.content.filetime = time.strftime("%Y-%m-%d %H:%M:%S", info['timestamp'])
         if 'title' in info and self.content.title is None:
             self.content.title = info['title']
         if 'caption' in info and self.content.caption is None:
