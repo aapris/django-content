@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import datetime
 
 import sys
 if __name__=='__main__':
@@ -8,6 +9,8 @@ import re
 import time
 import subprocess
 import tempfile
+from django.utils import timezone
+
 import PIL.Image
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -174,36 +177,18 @@ def get_imageinfo(filepath):
     file.close()
     if exif:
         info['exif'] = exif
-    # EXIF.py can't parse iPhoto exported
-    #if 'GPS GPSLatitude' in exif and \
-    #   'GPS GPSLongitude' in exif:
-    #    d,m,s = [float(x.num/x.den) for x in exif['GPS GPSLatitude'].values]
-    #    info['lat'] = d + m/60.0 + s/60.0/60
-    #    d,m,s = [float(x.num/x.den) for x in exif['GPS GPSLongitude'].values]
-    #    info['lon'] = d + m/60.0 + s/60.0/60
-    #    if str(exif['GPS GPSLatitudeRef']) != 'N':
-    #        info['lat'] = -info['lat']
-    #    if str(exif['GPS GPSLongitudeRef']) != 'E':
-    #        info['lon'] = -info['lon']
-    #    #print exif['GPS GPSLongitudeRef'], exif['GPS GPSLatitudeRef']
-    #if 'EXIF DateTimeOriginal' in exif:
-    #    #print exif['EXIF DateTimeOriginal'], type(exif['EXIF DateTimeOriginal'])
-    #    exiftime = str(exif['EXIF DateTimeOriginal'])
-    #    try:
-    #        info['timestamp'] = time.strptime(exiftime, '%Y:%m:%d %H:%M:%S')
-    #    except:
-    #        #print exiftime
-    #        pass
-
     im = Image.open(filepath)
     exif_data = get_exif_data(im)
-    #print exif_data
     info['lat'], info['lon'] = get_lat_lon(exif_data)
     if 'DateTimeOriginal' in exif_data:
         try:
+            info['datetime'] = datetime.datetime.strptime(exif_data['DateTimeOriginal'],
+                                                          '%Y:%m:%d %H:%M:%S').replace(tzinfo=timezone.utc)
             info['timestamp'] = time.strptime(exif_data['DateTimeOriginal'], '%Y:%m:%d %H:%M:%S')
-        except:
+        except Exception, err:
             #print exiftime
+            print err
+            raise
             pass
 
     iptc = IPTCInfo(filepath, force=True)
