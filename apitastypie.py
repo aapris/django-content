@@ -106,7 +106,7 @@ class ContentResource(ModelResource):
             kwargs['api_name'] = self._meta.api_name
         return self._build_reverse_url("api_dispatch_detail", kwargs=kwargs)
 
-    def override_urls(self):
+    def prepend_urls(self):
         """Make resource's URL to match uid instead of real PK id,
         See also get_resource_uri above."""
         return [
