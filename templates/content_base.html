@@ -57,7 +57,8 @@ div.preview {
  <h1>{% trans 'Latest files' %}</h1>
 {% for object in latest_objects %}
 <div class="preview">
- <a href="{% url content:edit object.uid %}">{% if object.thumbnail %}<img src="{% url content:instance uid=object.uid width='200' height='200' ext='jpg' %}" alt="{{ object.originalfilename }}"/>{% else  %}{{ object.originalfilename }}{% endif  %}</a><br/>
+ <a href="{% url content:edit object.uid %}">
+ {% if object.thumbnail %}<img src="{% url content:instance uid=object.uid width='150' height='150' action="-crop" ext='jpg' %}" alt="{{ object.originalfilename }}"/>{% else  %}{{ object.originalfilename }}{% endif  %}</a><br/>
 {{ object.mimetype }} ({{ object.filesize|filesizeformat }})<br/>
 {% trans "Original time" %}: {{ object.filetime|date:'Y-m-d H:i:s'|default:'--' }}<br/>
 {% trans "Added" %}: {{ object.created|date:'Y-m-d H:i:s'|default:'--' }}
