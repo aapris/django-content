@@ -13,10 +13,7 @@ about duration, bitrate, dimensions etc.
 import os
 import hashlib
 import mimetypes
-try:
-    import PIL.Image
-except:
-    import Image
+import Image
 import string
 import random
 import tempfile
@@ -258,12 +255,12 @@ class Image(models.Model):
             im = im.convert('RGB')
         size = (t[0], t[1])
         if self.rotate == 90:
-            im = im.transpose(PIL.Image.ROTATE_270)
+            im = im.transpose(Image.ROTATE_270)
         elif self.rotate == 180:
-            im = im.transpose(PIL.Image.ROTATE_180)
+            im = im.transpose(Image.ROTATE_180)
         elif self.rotate == 270:
-            im = im.transpose(PIL.Image.ROTATE_90)
-        im.thumbnail(size, PIL.Image.ANTIALIAS)
+            im = im.transpose(Image.ROTATE_90)
+        im.thumbnail(size, Image.ANTIALIAS)
         # TODO: use imagemagick and convert
         # Save resized image to a temporary file
         # NOTE: the size will be increased if original is smaller than size
@@ -279,14 +276,14 @@ class Image(models.Model):
         return True
 
     def re_generate_thumb(self):
-        im = PIL.Image.open(self.content.file.path)
+        im = Image.open(self.content.file.path)
         self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
 
     def save(self, *args, **kwargs):
         if self.content.file is not None and \
           (self.width is None or self.height is None):
             try:
-                im = PIL.Image.open(self.content.file.path)
+                im = Image.open(self.content.file.path)
                 (self.width, self.height) = im.size
             except IOError:
                 self.content.status = "INVALID"

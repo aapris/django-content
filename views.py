@@ -20,11 +20,12 @@ from django.db.models import Q
 from django.contrib.gis.geos import Point
 
 import os
-import os.path
+#import os.path
 import StringIO
-import tempfile
-import PIL
-from PIL import Image, ImageDraw, ImageFont
+#import tempfile
+#import PIL
+#from PIL import Image, ImageDraw, ImageFont
+import Image, ImageDraw, ImageFont
 import json
 
 from filehandler import handle_uploaded_file
@@ -290,7 +291,7 @@ def instance(request, uid, width, height, action, ext):
         elif contenttype == 'video':
             thumbnail = c.video.thumbnail
         try:
-            im = PIL.Image.open(thumbnail.path)
+            im = Image.open(thumbnail.path)
         except AttributeError, err:
             print "No thumbnail in non-video/image Content ", c.uid, str(err)
             im = _get_placeholder_instance(c)
@@ -309,7 +310,7 @@ def instance(request, uid, width, height, action, ext):
             crop_size = int(max(im.size) / side_divider) + 1
             #print shorter_side, side_divider, im.size, crop_size
             size = (crop_size, crop_size)
-            im.thumbnail(size, PIL.Image.ANTIALIAS)
+            im.thumbnail(size, Image.ANTIALIAS)
             margin = (max(im.size) - min(im.size)) / 2
             crop_size = min(im.size)
             if im.size[0] > im.size[1]: #horizontal
@@ -318,7 +319,7 @@ def instance(request, uid, width, height, action, ext):
                 crop = [0, 0 + margin, crop_size, margin + crop_size]
             im = im.crop(crop)
         else:
-            im.thumbnail(size, PIL.Image.ANTIALIAS)
+            im.thumbnail(size, Image.ANTIALIAS)
         # TODO: use imagemagick and convert for better quality
         tmp = StringIO.StringIO()
         im.save(tmp, "jpeg", quality=90)
