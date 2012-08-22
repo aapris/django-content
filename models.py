@@ -203,10 +203,16 @@ class Content(models.Model):
         """
         if self.mimetype is None:
             return None
-        if self.mimetype.startswith("image") and self.image.thumbnail:
-            return self.image.thumbnail
-        elif self.mimetype.startswith("video") and self.video.thumbnail:
-            return self.video.thumbnail
+        elif self.mimetype.startswith("image"):
+            try:
+                return self.image.thumbnail
+            except Image.DoesNotExist:
+                return None
+        elif self.mimetype.startswith("video"): # and self.video.thumbnail:
+            try:
+                return self.video.thumbnail
+            except Video.DoesNotExist:
+                return None
         else:
             return None
 
