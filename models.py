@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 Defines all supported different content type classes (image, video, audio etc.).
-If file type is not supported, it is saved "as is".
+If file type is not supported, it is saved "as is", without any metadata
+about duration, bitrate, dimensions etc.
+
 """
+# TODO: implement Image/Video/Audio Instance classes, which save conversions
+# to different formats and sizes (e.g. audio->mp3+ogg, video->mp4+theora).
+# TODO: possibility to save more than one thumbnails of a video?
+
 
 import os
-#import re
-import time
 import hashlib
 import mimetypes
 import PIL.Image
 import string
 import random
-import datetime
 import tempfile
 
 from django.conf import settings
@@ -23,7 +26,8 @@ from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import *
 
-from content.filetools import get_videoinfo, get_imageinfo, get_mimetype, do_video_thumbnail
+from content.filetools import get_videoinfo, get_imageinfo, get_mimetype
+from content.filetools import do_video_thumbnail
 
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS['CONTENT'])
 preview_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['PREVIEW'])
@@ -56,38 +60,36 @@ def upload_split_by_1000(obj, filename):
     path = os.sep.join([longid[j:j+3] for j in chunkindex] + [filename])
     return path
 
+
 def get_uid(length=12):
     """
     Generate and return a random string which can be considered unique.
     Default length is 12 characters from set [a-zA-Z0-9].
     """
     alphanum = string.letters + string.digits
-    return ''.join([alphanum[random.randint(0,len(alphanum)-1)] for i in xrange(length)])
-
-def get_token(charset=string.hexdigits, length=16):
-    """
-    Generate and return a random string which can be considered unique.
-    Default length is 12 characters from set [a-zA-Z0-9].
-    """
-    return ''.join([charset[random.randint(0,len(charset)-1)] for i in xrange(length)])
+    return ''.join([alphanum[random.randint(0, len(alphanum) - 1)] for i in
+                    xrange(length)])
 
 
 class Content(models.Model):
     """
-    Common fields for all content files.
+    Common fields for all content files. It would be useful to save
+    Uploadinfo, if the content is saved via HTTP like this:
+    Uploadinfo.create(c, request).save()
     """
-    # Static fields (for internal use)
-    #id = models.AutoField('ID', primary_key=True)
-    status = models.CharField(max_length=40, default="UNPROCESSED", editable=False)
+    status = models.CharField(max_length=40, default="UNPROCESSED",
+                              editable=False)
     privacy = models.CharField(max_length=40, default="PRIVATE",
                                choices=(("PRIVATE", "Private"),
                                         ("RESTRICTED", "Restricted"),
                                         ("PUBLIC", "Public")))
-    uid = models.CharField(max_length=40, unique=True, db_index=True, default=get_uid, editable=False)
+    uid = models.CharField(max_length=40, unique=True, db_index=True,
+                           default=get_uid, editable=False)
     "Unique identifier for current Content"
     user = models.ForeignKey(User, blank=True, null=True)
     "The owner of this Content (Django User)"
-    originalfilename = models.CharField(max_length=256, null=True, editable=False)
+    originalfilename = models.CharField(max_length=256, null=True,
+                                        editable=False)
     "Original filename of the uploaded file"
     filesize = models.IntegerField(null=True, editable=False)
     "Size of original file"
@@ -95,7 +97,8 @@ class Content(models.Model):
     "Creation time of original file (e.g. EXIF timestamp)"
     mimetype = models.CharField(max_length=200, null=True, editable=False)
     "Official MIME Media Type (e.g. image/jpeg, video/mp4)"
-    file = models.FileField(storage=content_storage, upload_to=upload_split_by_1000, editable=False)
+    file = models.FileField(storage=content_storage,
+                            upload_to=upload_split_by_1000, editable=False)
     "Actual Content"
     md5 = models.CharField(max_length=32, null=True, editable=False)
     "MD5 hash of original file in hex-format"
@@ -111,25 +114,25 @@ class Content(models.Model):
     "Timestamp when current Content is not anymore available for others than owner."
 
     # Static fields (for human use)
-    title = models.CharField(max_length=200, blank=True, null=True)
+    title = models.CharField(max_length=200, blank=True)
     "Short title for Content, a few words max."
-    caption = models.TextField(blank=True, null=True)
+    caption = models.TextField(blank=True)
     "Longer description of Content."
-    author = models.CharField(max_length=200, blank=True, null=True)
+    author = models.CharField(max_length=200, blank=True)
     "Content author's name or nickname."
-    keywords = models.CharField(max_length=500, blank=True, null=True)
+    keywords = models.CharField(max_length=500, blank=True)
     "Comma separated list of keywords/tags."
-    place = models.CharField(max_length=500, blank=True, null=True)
+    place = models.CharField(max_length=500, blank=True)
     "Country, state/province, city, address or other textual description."
     # license
     # origin, e.g. City museum, John Smith's photo album
     # Links and relations to other content files
     peers = models.ManyToManyField("self", blank=True, null=True, editable=True)
     parent = models.ForeignKey("self", blank=True, null=True, editable=True)
-    linktype = models.CharField(max_length=500, blank=True, null=True)
+    linktype = models.CharField(max_length=500, blank=True)
     "Information of the type of child-parent relation."
     #point = models.CharField(max_length=500, blank=True, null=True, editable=False)
-    point = models.PointField(geography=True, blank=True, null=True, editable=False)
+    point = models.PointField(geography=True, blank=True, null=True)
     objects = models.GeoManager()
 
     def latlon(self):
@@ -168,8 +171,6 @@ class Content(models.Model):
             self.mimetype = mimetypes.guess_type(originalfilename)[0]
         self.save()
 
-    #def save(self, *args, **kwargs):
-    #    super(Content, self).save(*args, **kwargs) # Call the "real" save() method.
 
     def get_type_instance(self):
         """
@@ -190,6 +191,7 @@ class Content(models.Model):
                 video = Video(content=self)
                 video.save() # Save new instance to the database
                 return video
+        #elif self.mimetype.startswith("audio"):
         else:
             return None
 
@@ -305,6 +307,9 @@ class Image(models.Model):
         self.content.save()
 
 class Video(models.Model):
+    """
+    Dimensions (width, height), duration and bitrate of video media.
+    """
     content = models.OneToOneField(Content, primary_key=True, editable=False)
     width = models.IntegerField(blank=True, null=True, editable=False)
     height = models.IntegerField(blank=True, null=True, editable=False)
@@ -344,40 +349,46 @@ class Video(models.Model):
         self.content.status = "PROCESSED"
         self.content.save()
 
+
 class Audio(models.Model):
+    """
+    Duration of audio media.
+    """
     content = models.OneToOneField(Content, primary_key=True)
-    duration = models.FloatField(blank=True, null=True)
+    duration = models.FloatField(blank=True, null=True) # seconds
     def __unicode__(self):
-        return u"Audio: %s (%.2f sec)" % (
-                 self.content.originalfilename, self.duration)
+        s = u"Audio: %s" % (self.content.originalfilename)
+        s += u" (%.2f sec)" % (self.duration if self.duration else -1.0)
+        return s
+
 
 class Uploadinfo(models.Model):
     """
     All possible information of the client who uploaded the Content file.
+    Usage: Uploadinfo.create(c, request).save()
     """
     content = models.OneToOneField(Content, primary_key=True, editable=False)
     sessionid = models.CharField(max_length=200, blank=True, editable=False)
-    ip = models.IPAddressField(blank=True, null=True, editable=False)
+    ip = models.GenericIPAddressField(blank=True, null=True, editable=False)
     useragent = models.CharField(max_length=500, blank=True, editable=False)
     info = models.TextField(blank=True, editable=True)
+
+    @classmethod
+    def create(cls, content, request):
+        """
+        Shortcut to create and save Uploadinfo in one line, e.g.
+        uli = Uploadinfo.create(c, request)
+        Uploadinfo.create(c, request).save()
+        """
+        uploadinfo = cls(content=content)
+        uploadinfo.set_request_data(request)
+        return uploadinfo
 
     def set_request_data(self, request):
         self.sessionid = request.session.session_key if request.session.session_key else ''
         self.ip = request.META.get('REMOTE_ADDR')
-        #print self.useragent, type(self.useragent)
         self.useragent = request.META.get('HTTP_USER_AGENT', '')[:500]
 
-
-class Authtoken(models.Model):
-    """
-    """
-    user = models.ForeignKey(User)
-    name = models.CharField(max_length=64, blank=True, editable=True)
-    # TODO: change default from get_token -> something more generic
-    uid = models.CharField(max_length=40, unique=True, db_index=True, default=get_token, editable=False)
-    created = models.DateTimeField(auto_now_add=True)
-    opens = models.DateTimeField(auto_now=True)
-    expires = models.DateTimeField(blank=True, null=True)
 
 class Mail(models.Model):
     """

@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFont
 import json
 
 from filehandler import handle_uploaded_file
-from models import Content
+from models import Content, Uploadinfo
 from forms import UploadForm, SearchForm, ContentModelForm
 
 """
@@ -85,6 +85,9 @@ def upload(request):
                 c.set_file(originalname, tmpname) # Save uploaded file to filesystem
                 c.get_type_instance() # Create thumbnail if it is supported
                 c.save()
+                Uploadinfo.create(c, request)
+                #uli.set_request_data(request)
+                #uli.save()
             return HttpResponseRedirect(reverse('content:edit', args=[c.uid]))
     else:
         form = UploadForm(initial={}) # An unbound form
@@ -127,6 +130,7 @@ def api_upload(request):
                 c.set_file(originalname, tmpname) # Save uploaded file to filesystem
                 c.get_type_instance() # Create thumbnail if it is supported
                 c.save()
+                Uploadinfo.create(c, request)
                 break # We save only the first file
             response = HttpResponse(status=201)
             #response.status_code = 201
@@ -157,6 +161,7 @@ def html5upload(request):
             c.set_file(originalname, tmpname) # Save uploaded file to filesystem
             c.get_type_instance() # Create thumbnail if it is supported
             c.save()
+            Uploadinfo.create(c, request).save()
             #print originalname
             #generating json response array
             result.append({"name": originalname,
