@@ -9,7 +9,7 @@ Try to write one-line assert commands for readability.
 
 import os
 import tempfile
-import PIL.Image
+import Image
 
 from django.utils import unittest
 from django.db import connection, transaction, IntegrityError

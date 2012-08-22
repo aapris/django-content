@@ -258,7 +258,7 @@ def image_magick_resize(src, target, width, height):
 
 def create_thumbnail(filepath, t):
     try:
-        im = PIL.Image.open(filepath)
+        im = Image.open(filepath)
     except IOError: # Image file is corrupted
         print "ERROR in image file:", filepath
         return False
@@ -266,13 +266,13 @@ def create_thumbnail(filepath, t):
         im = im.convert('RGB')
     size = (t[0], t[1])
     rotatemap = {
-        90: PIL.Image.ROTATE_270,
-       180: PIL.Image.ROTATE_180,
-       270: PIL.Image.ROTATE_90,
+        90: Image.ROTATE_270,
+       180: Image.ROTATE_180,
+       270: Image.ROTATE_90,
     }
     if t[4] != 0:
         im = im.transpose(rotatemap[t[4]])
-    im.thumbnail(size, PIL.Image.ANTIALIAS)
+    im.thumbnail(size, Image.ANTIALIAS)
     # TODO: use imagemagick and convert
     # Save resized image to a temporary file
     # NOTE: the size will be increased if original is smaller than size
