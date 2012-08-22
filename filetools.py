@@ -11,8 +11,8 @@ import subprocess
 import tempfile
 from django.utils import timezone
 
-import Image
-#from PIL.ExifTags import TAGS, GPSTAGS
+import Image as ImagePIL
+from ExifTags import TAGS, GPSTAGS
 import EXIF
 from iptcinfo import IPTCInfo
 
@@ -167,7 +167,7 @@ def get_lat_lon(exif_data):
 def get_imageinfo(filepath):
     """
     Return EXIF and IPTC information found from image file in a dictionary.
-    Uses EXIF.py, PIL.Image and iptcinfo.
+    Uses EXIF.py, PIL.111 and iptcinfo.
     NOTE: PIL can read EXIF tags including GPS tags also.
     """
     info = {}
@@ -176,7 +176,7 @@ def get_imageinfo(filepath):
     file.close()
     if exif:
         info['exif'] = exif
-    im = Image.open(filepath)
+    im = ImagePIL.open(filepath)
     exif_data = get_exif_data(im)
     info['lat'], info['lon'] = get_lat_lon(exif_data)
     if 'DateTimeOriginal' in exif_data:
@@ -258,21 +258,21 @@ def image_magick_resize(src, target, width, height):
 
 def create_thumbnail(filepath, t):
     try:
-        im = Image.open(filepath)
-    except IOError: # Image file is corrupted
+        im = ImagePIL.open(filepath)
+    except IOError: # ImagePIL file is corrupted
         print "ERROR in image file:", filepath
         return False
     if im.mode not in ('L', 'RGB'):
         im = im.convert('RGB')
     size = (t[0], t[1])
     rotatemap = {
-        90: Image.ROTATE_270,
-       180: Image.ROTATE_180,
-       270: Image.ROTATE_90,
+        90: ImagePIL.ROTATE_270,
+       180: ImagePIL.ROTATE_180,
+       270: ImagePIL.ROTATE_90,
     }
     if t[4] != 0:
         im = im.transpose(rotatemap[t[4]])
-    im.thumbnail(size, Image.ANTIALIAS)
+    im.thumbnail(size, ImagePIL.ANTIALIAS)
     # TODO: use imagemagick and convert
     # Save resized image to a temporary file
     # NOTE: the size will be increased if original is smaller than size
