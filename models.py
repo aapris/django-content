@@ -13,7 +13,10 @@ about duration, bitrate, dimensions etc.
 import os
 import hashlib
 import mimetypes
-import PIL.Image
+try:
+    import PIL.Image
+except:
+    import Image
 import string
 import random
 import tempfile

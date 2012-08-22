@@ -11,9 +11,8 @@ import subprocess
 import tempfile
 from django.utils import timezone
 
-import PIL.Image
-from PIL import Image
-from PIL.ExifTags import TAGS, GPSTAGS
+import Image
+#from PIL.ExifTags import TAGS, GPSTAGS
 import EXIF
 from iptcinfo import IPTCInfo
 
