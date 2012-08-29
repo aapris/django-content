@@ -266,7 +266,7 @@ def _get_placeholder_instance(c, text=None):
     return im 
 
 #@cache_page(60 * 60) # FIXME: this value should in settings.py
-#@cache_page(60 * 60)
+@cache_page(60 * 60)
 def instance(request, uid, width, height, action, ext):
     """
     Return scaled JPEG instance of the Content, which type is image.
