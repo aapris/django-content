@@ -16,6 +16,8 @@ from ExifTags import TAGS, GPSTAGS
 import EXIF
 from iptcinfo import IPTCInfo
 
+import logging
+logger = logging.getLogger('django')
 
 def guess_encoding(str):
     """
@@ -118,6 +120,9 @@ def get_exif_data(image):
                 else:
                     exif_data[decoded] = value
     except AttributeError: # This was missing from original code
+        pass
+    except IOError, err: # Broken files may throw IOError: not enough data ? 
+        logger.exception(err)
         pass
     return exif_data
 
