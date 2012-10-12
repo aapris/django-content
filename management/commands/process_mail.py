@@ -20,6 +20,8 @@ log = logging.getLogger('fetch_mail')
 
 from content.models import Content, Mail
 
+# FIXME: handle mailed files elsewhere, e.g. in comeup app
+
 # Helpers
 def get_subject(msg):
     """
@@ -60,7 +62,7 @@ def get_recipient(msg):
     Loop 'to_headers' until an email address(s) is found.
     Some mail servers use Envelope-to header.
     """
-    to_headers = ['envelope-to', 'to', 'cc', ]
+    to_headers = ['to', 'envelope-to', 'cc', ]
     tos = []
     while len(tos) == 0 and len(to_headers) > 0:
         tos = msg.get_all(to_headers.pop(0), [])
@@ -74,13 +76,14 @@ def handle_part(part):
 def savefiles(msg, simulate):
     """
     Extract parts from  msg (which is an email.message_from_string(str) instance)
-    and send them to the plok-database.
+    and send them to the database.
     NOTES:
     - uses only the first found email address to assume recipient
     """
     part_counter = 1
     subject = get_subject(msg)
     tos = get_recipient(msg)
+    #print tos
     msg_id = msg.get('message-id', '')
     froms = msg.get_all('from', [])
     p = re.compile('([\w\.\-]+)@')
@@ -96,14 +99,27 @@ def savefiles(msg, simulate):
     p = re.compile('([\w]+)\.([\w]+)@') # e.g. user.authtoken@plok.in
     matches = p.findall(tos[0])
     if len(matches) > 0:
-        user = matches[0][0].title()
+        username = matches[0][0].title()
         key = matches[0][1].lower()
     else:
         print "ERROR: No user.authkey found from %s %s" % (tos[0], msg_id)
         return False
+    print "User, key:", username, key
     # TODO: replace this with AuthTicket stuff
-    from django.contrib.auth import authenticate
-    user = authenticate(authtoken='qwerty123')
+    #from django.contrib.auth import authenticate
+    #user = authenticate(authtoken='qwerty123')
+    try:
+        user = User.objects.get(username=username.lower())
+    except User.DoesNotExist:
+        print "User.DoesNotExist !"
+        return False
+    if key.lower() == 'pub':
+        privacy = 'PUBLIC'
+    elif key.lower() == 'res':
+        privacy = 'RESTRICTED'
+    else:
+        privacy = 'PRIVATE'
+
     parts_not_to_save = ["multipart/mixed",
                          "multipart/alternative",
                          "multipart/related",
@@ -111,17 +127,17 @@ def savefiles(msg, simulate):
                          ]
     if simulate: # Print lots of debug stuff
         print u'=========\nMetadata:\n========='
-        print u'''Subject: %s\nUsername: %s\nFrom: %s\nTo: %s\nM-id: %s''' % (
-                subject, user, u','.join(tos), u','.join(froms), msg_id)
+        print u'''Subject: %s\nUsername: %s\nFrom: %s\nTo: %s\nM-id: %s\n(%s)''' % (
+                subject, user, u','.join(tos), u','.join(froms), msg_id, privacy)
         print u'=========\nParts:\n========='
     saved_parts = 0
     for part in msg.walk():
         part_content_type = part.get_content_type()
+        filename, filedata = handle_part(part)
         if part_content_type in parts_not_to_save and simulate:
             # print "NOT SAVING", part_content_type
             print "Not saving %s, filename %s" % (part_content_type, filename)
             continue
-        filename, filedata = handle_part(part)
         if filename is None:
             # print "NOT SAVING", part_content_type
             #print "Not saving empty filenames"
@@ -130,7 +146,7 @@ def savefiles(msg, simulate):
             print u'Saving: %s (%s)' % (filename, part_content_type)
         c = Content(
             user = user,
-            #privacy = legal_key_map[key],
+            privacy = privacy,
             caption = subject,
             author = sender_nick,
         )
