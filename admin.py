@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-# $Id$
 """
-Core's admin definitions.
+Content's admin definitions.
 
 You can override these in your own application's admin.py, just do this:
 
@@ -15,11 +14,7 @@ admin.site.register(Content, ContentAdmin)
 
 from django.contrib import admin
 from models import Content
-#from models import Set
-#from models import Content, Category, Set, Text
-#from multilingual.admin import MultilingualModelAdmin
-
-#import multilingual
+from models import Mail
 
 class ContentAdmin(admin.ModelAdmin):
     search_fields = ('title', 'caption', 'mimetype', 'caption')
@@ -28,27 +23,9 @@ class ContentAdmin(admin.ModelAdmin):
 
 admin.site.register(Content, ContentAdmin)
 
+class MailAdmin(admin.ModelAdmin):
+    search_fields = ('id', 'status',)
+    list_display = ('id', 'status',  'filesize', 'created',)
+    ordering = ('created',)
 
-#class CategoryAdmin(MultilingualModelAdmin):
-#    pass
-    #list_display = ('id', 'name',)
-    #search_fields = ('name',)
-    #ordering = ('name',)
-
-#admin.site.register(Category, CategoryAdmin)
-
-#class TextAdmin(admin.ModelAdmin):
-#class TextAdmin(MultilingualModelAdmin):
-#    search_fields = ('realm', 'key', 'text')
-#    list_display = ('realm', 'key', 'text')
-#    ordering = ('realm', 'key',)
-
-#admin.site.register(Text, TextAdmin)
-
-
-#class SetAdmin(admin.ModelAdmin):
-#    search_fields = ('title', )
-#    list_display = ('title', 'uid',)
-#    ordering = ('title',)
-#
-#admin.site.register(Set, SetAdmin)
+admin.site.register(Mail, MailAdmin)
