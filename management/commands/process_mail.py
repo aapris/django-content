@@ -73,12 +73,24 @@ def handle_part(part):
     filedata = part.get_payload(decode=1)
     return filename, filedata
 
+# not in use yet
+def get_all_data(msg):
+    all = {}
+    all['subject'] = get_subject(msg)
+    all['tos'] = get_recipient(msg)
+    all['msg_id'] = msg.get('message-id', '')
+    all['froms'] = msg.get_all('from', [])
+    return all
+
 def savefiles(msg, simulate):
     """
     Extract parts from  msg (which is an email.message_from_string(str) instance)
     and send them to the database.
     NOTES:
     - uses only the first found email address to assume recipient
+
+    TODO stuff
+    - reject if From: is empty
     """
     part_counter = 1
     subject = get_subject(msg)
@@ -112,13 +124,15 @@ def savefiles(msg, simulate):
         user = User.objects.get(username=username.lower())
     except User.DoesNotExist:
         print "User.DoesNotExist !"
+        log.warning("User.DoesNotExist: '%s'" % username)
         return False
+    privacy = 'PRIVATE'
     if key.lower() == 'pub':
         privacy = 'PUBLIC'
     elif key.lower() == 'res':
         privacy = 'RESTRICTED'
     else:
-        privacy = 'PRIVATE'
+        log.warning("Privacy part not found: '%s'" % key)
 
     parts_not_to_save = ["multipart/mixed",
                          "multipart/alternative",
@@ -128,22 +142,28 @@ def savefiles(msg, simulate):
     if simulate: # Print lots of debug stuff
         print u'=========\nMetadata:\n========='
         print u'''Subject: %s\nUsername: %s\nFrom: %s\nTo: %s\nM-id: %s\n(%s)''' % (
-                subject, user, u','.join(tos), u','.join(froms), msg_id, privacy)
+                subject, user, u','.join(froms), u','.join(tos), msg_id, privacy)
         print u'=========\nParts:\n========='
     saved_parts = 0
+    log.info("Walking through message parts")
     for part in msg.walk():
         part_content_type = part.get_content_type()
         filename, filedata = handle_part(part)
-        if part_content_type in parts_not_to_save and simulate:
+        if part_content_type in parts_not_to_save or filename is None:
             # print "NOT SAVING", part_content_type
-            print "Not saving %s, filename %s" % (part_content_type, filename)
+            log_msg = "Not saving '%s', filename '%s'." % (part_content_type, filename)
+            log.info(log_msg)
+            if simulate: print log_msg # Print lots of debug stuff
             continue
-        if filename is None:
-            # print "NOT SAVING", part_content_type
-            #print "Not saving empty filenames"
+            #print filedata, type(filedata), len(filedata)
+        if filedata is None or len(filedata) == 0:
+            log_msg = "Not saving '%s', filename '%s', file has no data" % (part_content_type, filename)
+            log.warning(log_msg)
+            if simulate: print log_msg # Print lots of debug stuff
             continue
-        if simulate: # Print lots of debug stuff
-            print u'Saving: %s (%s)' % (filename, part_content_type)
+        log_msg = u'Saving: %s (%s)' % (filename, part_content_type)
+        log.info(log_msg)
+        if simulate: print log_msg # Print lots of debug stuff
         c = Content(
             user = user,
             privacy = privacy,
@@ -167,10 +187,13 @@ def process_mails(limit, simulate):
         with open(path, 'rt') as f:
             maildata = f.read()
         msg = email.message_from_string(maildata)
-        if savefiles(msg, simulate):
+        saved_parts_count = savefiles(msg, simulate)
+        if saved_parts_count:
             mail.status = 'PROCESSED'
+            log.info("Saved %d files" % saved_parts_count)
         else:
             mail.status = 'FAILED'
+            log.warning("Saved %d files" % saved_parts_count)
         mail.processed = datetime.datetime.now()
         if simulate == False:
             mail.save()
