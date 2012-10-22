@@ -1,4 +1,6 @@
 """
+Obsolete, keep for Pys60Gps-versions compatibility.
+
 :mod:`content.api` Content's models related functions.
 
 operations defined here:
