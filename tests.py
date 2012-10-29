@@ -14,7 +14,12 @@ import Image
 from django.utils import unittest
 from django.db import connection, transaction, IntegrityError
 from django.contrib.auth.models import User
+from content.filetools import get_ffmpeg_videoinfo, get_videoinfo, get_audioinfo
+from content.filetools import create_videoinstance, create_audioinstance
+from content.filetools import is_audio, is_video
+
 from content.models import Content
+from content.models import Videoinstance, Audioinstance
 from content.models import content_storage, preview_storage
 
 TESTCONTENT_DIR = os.path.normpath(os.path.join(os.path.normpath(os.path.dirname(__file__)), "testfiles"))
@@ -45,10 +50,36 @@ class ContentTestCase(unittest.TestCase):
             full_path = os.path.join(TESTCONTENT_DIR, filename)
             c.set_file(filename, full_path)
             c.save()
+            maintype = c.mimetype.split('/')[0]
+            if maintype in ['video', 'audio']:
+                finfo = get_ffmpeg_videoinfo(c.file.path)
+                print finfo
+                if is_video(finfo):
+                    new_video = create_videoinstance(c.file.path)
+                    vi = Videoinstance(content=c)
+                    vi.save()
+                    vi.set_file(new_video, 'webm')
+                    info = get_videoinfo(get_ffmpeg_videoinfo(vi.file.path))
+                    print info
+                    vi.set_metadata(info)
+                    vi.save()
+                    print u'%s %.1f sec %dx%d pix' % (vi.mimetype, vi.duration, vi.width, vi.height)
+                if is_audio(finfo):
+                    new_video = create_audioinstance(c.file.path)
+                    ai = Audioinstance(content=c)
+                    ai.save()
+                    ai.set_file(new_video, 'ogg')
+                    info = get_audioinfo(get_ffmpeg_videoinfo(ai.file.path))
+                    print info
+                    ai.set_metadata(info)
+                    ai.save()
+                    print u'%s %.1f sec' % (vi.mimetype, vi.duration)
             #print c.get_type_instance()
             #print c.caption
             self.all_content.append(c)
             #self.assertEqual(c.file.path, "sd", c.file.path)
+        #import time
+        #time.sleep(20)
         self.assertEqual(Content.objects.count(), len(self.all_content), "1 or more files failed")
 
 

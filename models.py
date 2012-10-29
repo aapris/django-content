@@ -21,6 +21,7 @@ import tempfile
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.core.files.base import ContentFile
+from django.core.files import File
 
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models
@@ -31,6 +32,8 @@ from content.filetools import do_video_thumbnail
 
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS['CONTENT'])
 preview_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['PREVIEW'])
+video_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['VIDEO'])
+audio_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['AUDIO'])
 # TODO: change to APP_VAR_DIRS or something
 mail_storage = FileSystemStorage(location=settings.MAIL_CONTENT_DIR)
 
@@ -328,18 +331,26 @@ class Video(models.Model):
                  self.content.originalfilename,
                  self.width, self.height, self.duration)
 
+    def set_metadata(self, data):
+        self.width = data.get('width')
+        self.height = data.get('height')
+        self.duration = data.get('duration')
+        self.bitrate = data.get('bitrate')
+
     def save(self, *args, **kwargs):
         """ Save Video object and in addition:
         - use ffmpeg to extract some information of the video file
         - use ffmpeg to extract and save one thumbnail image from the file
         """
+        super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
+        self.content.status = "PROCESSED"
+        self.content.save()
+
+
         if self.content.file is not None and \
            (self.width is None or self.height is None):
-            info = get_videoinfo(self.content.file.path)
-            if 'duration' in info: self.duration = info['duration']
-            if 'bitrate' in info: self.bitrate = info['bitrate']
-            if 'width' in info: self.width = info['width']
-            if 'height' in info: self.height = info['height']
+            #info = get_videoinfo(self.content.file.path)
+            #self.set_metadata(info)
             # Create temporary file for thumbnail
             tmp_file, tmp_name = tempfile.mkstemp()
             if do_video_thumbnail(self.content.file.path, tmp_name):
@@ -355,6 +366,46 @@ class Video(models.Model):
         self.content.status = "PROCESSED"
         self.content.save()
 
+class Videoinstance(models.Model):
+    """
+    An instance of a video file.
+    This can be the video in different formats and  sizes or a thumbnail image.
+    Dimensions (width, height), duration and bitrate of video media.
+    TODO: images could be in separate model?
+    """
+    content = models.ForeignKey(Content, editable=False, related_name='videoinstances')
+    mimetype = models.CharField(max_length=200, editable=False)
+    filesize = models.IntegerField(blank=True, null=True, editable=False) # pixels
+    duration = models.FloatField(blank=True, null=True, editable=False) # seconds
+    bitrate = models.FloatField(blank=True, null=True, editable=False)  # bits / sec
+    extension = models.CharField(max_length=16, editable=False)
+    width = models.IntegerField(blank=True, null=True, editable=False)  # pixels
+    height = models.IntegerField(blank=True, null=True, editable=False) # pixels
+    framerate = models.FloatField(blank=True, null=True, editable=False)  # frames / sec
+    file = models.FileField(storage=video_storage,
+                            upload_to=upload_split_by_1000, editable=False)
+    created = models.DateTimeField(auto_now_add=True)
+
+    def set_file(self, filepath, ext):
+        """
+        """
+        self.mimetype = get_mimetype(filepath)
+        #ext = self.mimetype.split('/')[1]
+        filename = u"%09d-%s.%s" % (self.id, self.content.uid, ext)
+        print self.mimetype, filepath, filename
+        f = open(filepath, 'rb')
+        self.file.save(filename, File(f))
+        self.filesize = self.file.size
+        self.extension = ext
+        self.save()
+        f.close()
+
+    def set_metadata(self, data):
+        self.width = data.get('width')
+        self.height = data.get('height')
+        self.duration = data.get('duration')
+        self.bitrate = data.get('bitrate')
+        self.framerate = data.get('framerate')
 
 class Audio(models.Model):
     """
@@ -366,6 +417,41 @@ class Audio(models.Model):
         s = u"Audio: %s" % (self.content.originalfilename)
         s += u" (%.2f sec)" % (self.duration if self.duration else -1.0)
         return s
+
+class Audioinstance(models.Model):
+    """
+    An instance of a audio file.
+    This can be the video in different formats and sizes or a thumbnail image.
+    Dimensions (width, height), duration and bitrate of video media.
+    TODO: images could be in separate model?
+    """
+    content = models.ForeignKey(Content, editable=False, related_name='audioinstances')
+    mimetype = models.CharField(max_length=200, editable=False)
+    filesize = models.IntegerField(blank=True, null=True, editable=False) # pixels
+    duration = models.FloatField(blank=True, null=True, editable=False) # seconds
+    bitrate = models.FloatField(blank=True, null=True, editable=False)  # bits / sec
+    extension = models.CharField(max_length=16, editable=False)
+    file = models.FileField(storage=audio_storage,
+                            upload_to=upload_split_by_1000, editable=False)
+    created = models.DateTimeField(auto_now_add=True)
+
+    def set_file(self, filepath, ext):
+        """
+        """
+        self.mimetype = get_mimetype(filepath)
+        #ext = self.mimetype.split('/')[1]
+        filename = u"%09d-%s.%s" % (self.id, self.content.uid, ext)
+        print self.mimetype, filepath, filename
+        f = open(filepath, 'rb')
+        self.file.save(filename, File(f))
+        self.filesize = self.file.size
+        self.extension = ext
+        self.save()
+        f.close()
+
+    def set_metadata(self, data):
+        self.duration = data.get('duration')
+        self.bitrate = data.get('bitrate')
 
 
 class Uploadinfo(models.Model):

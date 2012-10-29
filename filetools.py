@@ -1,4 +1,32 @@
 # -*- coding: utf-8 -*-
+"""
+Media file tools.
+
+ffmpeg, ffprobe binaries must be installed.
+PIL must be installed.
+python-magic must be installed.
+
+get mimetype
+
+if image/*:
+    try: PIL
+    except: do fail
+if video/*:
+    is_audio
+        try: ffmpeg
+        except: do fail
+    is_video:
+        try: ffmpeg
+        except: do fail
+    else: do fail
+if audio/*:
+    is_audio
+        try: ffmpeg
+        except: do fail
+    else: do fail
+else:
+    store
+"""
 import datetime
 
 import sys
@@ -12,9 +40,11 @@ import tempfile
 from django.utils import timezone
 
 import Image as ImagePIL
+import magic
 from ExifTags import TAGS, GPSTAGS
 import EXIF
 from iptcinfo import IPTCInfo
+import pipeffmpeg
 
 import logging
 logger = logging.getLogger('django')
@@ -39,27 +69,85 @@ def guess_encoding(str):
 def get_mimetype(filepath):
     """
     Return mimetype of given file.
-    This uses `file` command found in most unix/linux systems.
-    TODO: use python-magic instead for better portability
-    >>> magic = magic.open(magic.MAGIC_MIME)
-    >>> magic.load()
-    >>> magic.file("test.jpg")
-    'image/jpeg'
+    Use python-magic if it is found, otherwise try
+    `file` command found in most unix/linux systems.
     File for windows:
     http://gnuwin32.sourceforge.net/packages/file.htm
     """
-    file_cmd = ['file', '--mime-type', '--brief', '%s' % filepath]
-    # FIXME: this doesn't check if executable "file" exist at all
-    # TODO: think what to do if this fails
-    mime = subprocess.Popen(file_cmd,
-                            stdout=subprocess.PIPE).communicate()[0].strip()
-    # TODO: REMOVE OLD WAY
-    #file_cmd = 'file --mime-type --brief "%s"' % filepath
-    #mime = os.popen(file_cmd).read().strip()
-    # TODO: it could be a good idea to compare file's and mimetypes' output here?
-    return mime
+    return magic.from_file(filepath, mime=True)
+#    raise
+#    file_cmd = ['file', '--mime-type', '--brief', '%s' % filepath]
+#    # FIXME: this doesn't check if executable "file" exist at all
+#    # TODO: think what to do if this fails
+#    mime = subprocess.Popen(file_cmd,
+#                            stdout=subprocess.PIPE).communicate()[0].strip()
+#    return mime
 
-def get_videoinfo(filepath):
+def is_audio(info):
+    """
+    Return True if data from pipeffmpeg.get_info(fname) contains
+    exactly 1 stream and it's codec_type is audio.
+    """
+    if len(info['streams']) == 1\
+       and 'codec_type' in info['streams'][0]\
+       and info['streams'][0].get('codec_type') == 'audio':
+        return True
+    return False
+
+def is_video(info):
+    """
+    Return True if data from pipeffmpeg.get_info(fname) contains
+    at least 1 stream and one of the has codec_type video.
+    NOTE: JPEG images are detected as MJPEG (Motion JPEG) videos, so
+    it'd better to handle JPEGs before calling this.
+    """
+    if len(info['streams']) > 0:
+        for stream in info['streams']:
+            if stream.get('codec_type') == 'video':
+                return True
+    return False
+
+def get_ffmpeg_videoinfo(filepath):
+    return pipeffmpeg.get_info(filepath)
+
+
+def get_float(key, _dict):
+    try:
+        return float(_dict.get(key))
+    except:
+        raise
+
+def get_videoinfo(info):
+    data = {}
+    data['duration'] = get_float('duration', info)
+    data['size'] = int(get_float('size', info))
+    for stream in info['streams']:
+        if stream.get('codec_type') == 'video':
+            for key in stream.keys():
+                if key in ['width', 'height']:
+                    data[key] = int(stream[key])
+                if key in ['avg_frame_rate']:
+                    # e.g. '1000000000/33333' -> 1000000000, 33333
+                    a, b = [int(x) for x in stream[key].split('/')]
+                    data['framerate'] = a / 1000.0 / b # 30.00030000300003
+    return data
+
+def get_audioinfo(info):
+    data = {}
+    data['duration'] = get_float('duration', info)
+    data['size'] = int(get_float('size', info))
+    for stream in info['streams']:
+        if stream.get('codec_type') == 'audio':
+            for key in stream.keys():
+                print key, stream[key]
+                #if key in ['avg_frame_rate']:
+                #    # e.g. '1000000000/33333' -> 1000000000, 33333
+                #    a, b = [int(x) for x in stream[key].split('/')]
+                #    data['framerate'] = a / 1000.0 / b # 30.00030000300003
+    return data
+
+
+def get_videoinfo_old(filepath):
     """
     Return duration, bitrate and size of given video file in a dictionary.
     All values are parsed from ffmpeg's output, which looks like
@@ -245,6 +333,39 @@ def do_video_thumbnail(src, target):
         # TODO: log file and error here.
         return False
 
+
+#import subprocess
+
+def create_videoinstance(filepath, params = [], outfile = None, ext = 'webm'):
+    #ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
+    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    if outfile is None:
+        outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
+    if not params:
+        params = ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']
+    full_cmd = ffmpeg_cmd + params + [outfile]
+    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    out = p.stdout.read()
+    # print out
+    return outfile
+
+
+def create_audioinstance(filepath, params = [], outfile = None, ext = 'mp3'):
+    #ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
+    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    if outfile is None:
+        outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
+    if not params:
+        params = ['-acodec', 'libmp3lame', '-ab', '64k']
+    full_cmd = ffmpeg_cmd + params + [outfile]
+    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    out = p.stdout.read()
+    # print out
+    return outfile
+
+
 # Not implemented
 def convert_video(src, target):
     """
@@ -287,8 +408,10 @@ def create_thumbnail(filepath, t):
     return tmp
 
 
-if __name__=='__main__':
-    info = get_imageinfo(sys.argv[1])
+# Test functions
+
+def _test_image(filepath):
+    info = get_imageinfo(filepath)
     if 'exif' in info and 'JPEGThumbnail' in info['exif']:
         del info['exif']['JPEGThumbnail']
     #print info['exif']
@@ -300,3 +423,32 @@ if __name__=='__main__':
     thumb = create_thumbnail(sys.argv[1], THUMBNAIL_PARAMETERS)
     thumb.close()
     print thumb.name
+
+def _test_video(filepath):
+    params = []
+    new_video = create_videoinstance(filepath, params)
+    info = get_ffmpeg_videoinfo(new_video)
+    print info, new_video
+
+def _test_audio(filepath):
+    params = []
+    new_audio = create_audioinstance(filepath, params)
+    info = get_ffmpeg_videoinfo(new_audio)
+    print info
+
+if __name__=='__main__':
+    filepath = sys.argv[1]
+    mime = get_mimetype(filepath)
+    type = mime.split('/')[0]
+    print "testing", type, filepath
+    if type == 'image':
+        _test_image(filepath)
+    elif type == 'video':
+        #get_ffmpeg_videoinfo
+        info = get_ffmpeg_videoinfo(filepath)
+        if is_video(info):
+            _test_video(filepath)
+        elif is_audio(info):
+            _test_audio(filepath)
+    elif type == 'audio':
+        _test_audio(filepath)

@@ -30,7 +30,7 @@ import ImageDraw, ImageFont
 import json
 
 from filehandler import handle_uploaded_file
-from models import Content, Uploadinfo
+from models import Content, Uploadinfo, Videoinstance, Audioinstance
 from forms import UploadForm, SearchForm, ContentModelForm
 
 """
@@ -341,6 +341,35 @@ def instance(request, uid, width, height, action, ext):
         response["Content-Type"] = "text/plain" #content_item.mime
         response["Content-Length"] = len(data)
         return response
+
+#@cache_page(60 * 60)
+def foobar(request, uid, id, ext):
+    """
+    Return scaled JPEG instance of the Content, which type is image.
+    New size is determined from URL.
+    action can be '-crop'
+    """
+    # w, h = width, height
+    response = HttpResponse()
+    try:
+        c = Content.objects.get(uid=uid)
+    except Content.DoesNotExist:
+        raise Http404
+    ai = Audioinstance.objects.filter(content=c).filter(id=id)[0]
+    print ai
+    response = HttpResponse()
+    with open(ai.file.path, 'rb') as f:
+        response.write(f.read())
+    response["Content-Type"] = ai.mimetype
+    response["Content-Length"] = ai.filesize
+    if 'attachment' in request.GET:
+        response["Content-Disposition"] = "attachment; filename=%s-%s.%s" % (c.originalfilename, c.uid, ext)
+        # Use 'updated' time in Last-Modified header (cache_page uses caching page)
+    response['Last-Modified'] = c.updated.strftime('%a, %d %b %Y %H:%M:%S GMT')
+    return response
+
+
+
 
 from django.core.servers.basehttp import FileWrapper
 
