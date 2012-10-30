@@ -327,6 +327,7 @@ class Video(models.Model):
     thumbnail = models.ImageField(storage=preview_storage, upload_to=upload_split_by_1000, editable=False)
 
     def __unicode__(self):
+        return u"Video: %s" % (self.content.originalfilename)
         return u"Video: %s (%dx%dpx, %.2f sec)" % (
                  self.content.originalfilename,
                  self.width, self.height, self.duration)

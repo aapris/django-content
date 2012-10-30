@@ -114,18 +114,21 @@ def get_ffmpeg_videoinfo(filepath):
 def get_float(key, _dict):
     try:
         return float(_dict.get(key))
+    except TypeError, err:
+        print err, key, _dict
+        return None
     except:
         raise
 
 def get_videoinfo(info):
     data = {}
     data['duration'] = get_float('duration', info)
-    data['size'] = int(get_float('size', info))
+    #data['size'] = int(get_float('size', info))
     for stream in info['streams']:
         if stream.get('codec_type') == 'video':
             for key in stream.keys():
                 if key in ['width', 'height']:
-                    data[key] = int(stream[key])
+                    data[key] = int(stream[key]) if stream[key] else None
                 if key in ['avg_frame_rate']:
                     # e.g. '1000000000/33333' -> 1000000000, 33333
                     a, b = [int(x) for x in stream[key].split('/')]
@@ -135,7 +138,7 @@ def get_videoinfo(info):
 def get_audioinfo(info):
     data = {}
     data['duration'] = get_float('duration', info)
-    data['size'] = int(get_float('size', info))
+    #data['size'] = int(get_float('size', info))
     for stream in info['streams']:
         if stream.get('codec_type') == 'audio':
             for key in stream.keys():

@@ -201,7 +201,8 @@ def create_instances(limit):
             print finfo
             if is_video(finfo):
                 params = (
-                    ('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']),
+                    #('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']),
+                    ('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-s', '320x240']),
                 )
                 for x in params:
                     ext, mimetype, param = x
@@ -213,7 +214,7 @@ def create_instances(limit):
                     print info
                     vi.set_metadata(info)
                     vi.save()
-                    print u'%s %.1f sec %dx%d pix' % (vi.mimetype, vi.duration, vi.width, vi.height)
+                    print vi.mimetype, vi.duration, vi.width, vi.height
             if is_audio(finfo):
                 params = (
                     ('ogg', 'audio/ogg', ['-acodec', 'libvorbis', '-ab', '64k']),
@@ -229,7 +230,7 @@ def create_instances(limit):
                     print info
                     ai.set_metadata(info)
                     ai.save()
-                    print u'%s %.1f sec' % (ai.mimetype, ai.duration)
+                    print ai.mimetype, ai.duration
 
 
 class Command(BaseCommand):
