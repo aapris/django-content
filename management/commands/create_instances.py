@@ -183,7 +183,6 @@ from content.filetools import is_audio, is_video
 
 from content.models import Videoinstance, Audioinstance
 
-
 def create_instances(limit):
     contents = Content.objects.filter(mimetype__startswith='video').order_by('-created')
     if limit > 0:
@@ -202,6 +201,9 @@ def create_instances(limit):
             if is_video(finfo):
                 params = (
                     #('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']),
+                    #('mp4', 'video/mp4', ['-deinterlace', '-vcodec', 'libx264', '-vsync', '2', '-acodec', 'libfaac', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
+                    #('mp4', 'video/mp4', ['-deinterlace', '-vcodec', 'libx264', '-vsync', '2', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
+                    ('mp4', 'video/mp4', ['-vcodec', 'libx264', '-preset', 'fast', '-vprofile', 'baseline', '-vsync', '2', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
                     ('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-s', '320x240']),
                 )
                 for x in params:
@@ -209,8 +211,10 @@ def create_instances(limit):
                     new_video = create_videoinstance(c.file.path, param, ext = ext)
                     vi = Videoinstance(content=c)
                     vi.save()
+                    print new_video, ext
                     vi.set_file(new_video, ext)
                     info = get_videoinfo(get_ffmpeg_videoinfo(vi.file.path))
+                    #os.unlink(new_video)
                     print info
                     vi.set_metadata(info)
                     vi.save()
