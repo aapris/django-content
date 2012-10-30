@@ -355,13 +355,20 @@ def foobar(request, uid, id, ext):
         c = Content.objects.get(uid=uid)
     except Content.DoesNotExist:
         raise Http404
-    ai = Audioinstance.objects.filter(content=c).filter(id=id)[0]
-    print ai
+    ais = Audioinstance.objects.filter(content=c).filter(id=id)
+    vis = Videoinstance.objects.filter(content=c).filter(id=id)
+    if ais.count() > 0:
+        inst = ais[0]
+
+    elif vis.count() > 0:
+        inst = vis[0]
+    else:
+        raise Http404
     response = HttpResponse()
-    with open(ai.file.path, 'rb') as f:
+    with open(inst.file.path, 'rb') as f:
         response.write(f.read())
-    response["Content-Type"] = ai.mimetype
-    response["Content-Length"] = ai.filesize
+    response["Content-Type"] = inst.mimetype
+    response["Content-Length"] = inst.filesize
     if 'attachment' in request.GET:
         response["Content-Disposition"] = "attachment; filename=%s-%s.%s" % (c.originalfilename, c.uid, ext)
         # Use 'updated' time in Last-Modified header (cache_page uses caching page)
