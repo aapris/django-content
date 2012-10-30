@@ -49,6 +49,9 @@ import pipeffmpeg
 import logging
 logger = logging.getLogger('django')
 
+FFMPEG = '/opt/local/bin/ffmpeg'
+FFMPEG = 'ffmpeg'
+
 def guess_encoding(str):
     """
     Try to guess is the str utf8, mac-roman or latin-1 encoded.
@@ -172,7 +175,7 @@ def get_videoinfo_old(filepath):
     # FIXME: this doesn't check if executable "ffmpeg" exist at all
     #ffmpeg_cmd = 'ffmpeg -i "%s" 2>&1' % filepath
     #out = os.popen(ffmpeg_cmd).read().strip()
-    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    ffmpeg_cmd = [FFMPEG, '-i', '%s' % filepath]
     p = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
     out = p.stdout.read()
@@ -328,7 +331,7 @@ def do_video_thumbnail(src, target):
     try:
         # FIXME: this fails to create thumbnail if the seconds value after -ss exeeds clip length
         subprocess.check_call([
-            'ffmpeg', '-y', '-ss', '1', '-i', src,
+            FFMPEG, '-y', '-ss', '1', '-i', src,
             '-vframes', '1', '-f', 'mjpeg', target
             ])
         return True
@@ -341,22 +344,23 @@ def do_video_thumbnail(src, target):
 
 def create_videoinstance(filepath, params = [], outfile = None, ext = 'webm'):
     #ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
-    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    ffmpeg_cmd = [FFMPEG, '-i', '%s' % filepath]
     if outfile is None:
         outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
     if not params:
         params = ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']
     full_cmd = ffmpeg_cmd + params + [outfile]
+    print ' '.join(full_cmd)
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
     out = p.stdout.read()
-    # print out
+    print out
     return outfile
 
 
 def create_audioinstance(filepath, params = [], outfile = None, ext = 'mp3'):
     #ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
-    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    ffmpeg_cmd = [FFMPEG, '-i', '%s' % filepath]
     if outfile is None:
         outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
     if not params:
