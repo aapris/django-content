@@ -211,6 +211,7 @@ def create_instances(limit):
                     new_video = create_videoinstance(c.file.path, param, ext = ext)
                     vi = Videoinstance(content=c)
                     vi.save()
+                    c.video.generate_thumb()
                     print new_video, ext
                     vi.set_file(new_video, ext)
                     info = get_videoinfo(get_ffmpeg_videoinfo(vi.file.path))
