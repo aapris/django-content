@@ -205,6 +205,7 @@ def create_instances(limit):
                     #('mp4', 'video/mp4', ['-deinterlace', '-vcodec', 'libx264', '-vsync', '2', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
                     ('mp4', 'video/mp4', ['-vcodec', 'libx264', '-preset', 'fast', '-vprofile', 'baseline', '-vsync', '2', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
                     ('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-s', '320x240']),
+                    ('mov', 'video/quicktime', ['-s', '320x240']),
                 )
                 for x in params:
                     ext, mimetype, param = x
