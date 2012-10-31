@@ -53,7 +53,7 @@ def upload_split_by_1000(obj, filename):
     get one level deeper, e.g. id=10**9 -> 100/000/000/filename
     This should not clash with existings filenames.
     """
-    obj.save() # save the object to ensure there is obj.id available
+    #obj.save() # save the object to ensure there is obj.id available
     if hasattr(obj, 'content'):
         id = obj.content.id
     else:
@@ -193,8 +193,8 @@ class Content(models.Model):
             except Video.DoesNotExist:
                 video = Video(content=self)
                 video.save() # Save new instance to the database
+                video.generate_thumb()
                 return video
-        #elif self.mimetype.startswith("audio"):
         else:
             return None
 
@@ -338,34 +338,32 @@ class Video(models.Model):
         self.duration = data.get('duration')
         self.bitrate = data.get('bitrate')
 
-    def save(self, *args, **kwargs):
-        """ Save Video object and in addition:
-        - use ffmpeg to extract some information of the video file
-        - use ffmpeg to extract and save one thumbnail image from the file
-        """
-        super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
-        self.content.status = "PROCESSED"
-        self.content.save()
+    #def save(self, *args, **kwargs):
+    #    """ Save Video object and in addition:
+    #    - use ffmpeg to extract some information of the video file
+    #    - use ffmpeg to extract and save one thumbnail image from the file
+    #    """
+    #    super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
+    #    self.content.status = "PROCESSED"
+    #    self.content.save()
 
-
+    def generate_thumb(self):
         if self.content.file is not None and \
            (self.width is None or self.height is None):
-            #info = get_videoinfo(self.content.file.path)
-            #self.set_metadata(info)
             # Create temporary file for thumbnail
             tmp_file, tmp_name = tempfile.mkstemp()
             if do_video_thumbnail(self.content.file.path, tmp_name):
                 postfix = "%s-%s-%sx%s" % (THUMBNAIL_PARAMETERS)
-                #filename = u"%09d-%s%s" % (self.id, self.uid, ext.lower())
                 filename = u"%09d-%s-%s.jpg" % (self.content.id, self.content.uid, postfix)
-                #filename = u"%s.jpg" % (self.content.uid)
-                f = open(tmp_name, "rb")
-                self.thumbnail.save(filename, ContentFile(f.read()))
-                f.close()
-            os.unlink(tmp_name)
-        super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
-        self.content.status = "PROCESSED"
-        self.content.save()
+                if os.path.isfile(tmp_name):
+                    with open(tmp_name, "rb") as f:
+                        #self.thumbnail.save(filename, ContentFile(f.read()))
+                        self.thumbnail.save(filename, File(f))
+                    self.save()
+                    os.unlink(tmp_name)
+        #super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
+        #self.content.status = "PROCESSED"
+        #self.content.save()
 
 class Videoinstance(models.Model):
     """
@@ -393,13 +391,13 @@ class Videoinstance(models.Model):
         self.mimetype = get_mimetype(filepath)
         #ext = self.mimetype.split('/')[1]
         filename = u"%09d-%s.%s" % (self.id, self.content.uid, ext)
-        print self.mimetype, filepath, filename
-        f = open(filepath, 'rb')
-        self.file.save(filename, File(f))
-        self.filesize = self.file.size
-        self.extension = ext
+        # print self.mimetype, filepath, filename
+        with open(filepath, 'rb') as f:
+            self.file.save(filename, File(f))
+            self.filesize = self.file.size
+            self.extension = ext
         self.save()
-        f.close()
+        #f.close()
 
     def set_metadata(self, data):
         self.width = data.get('width')
@@ -442,13 +440,12 @@ class Audioinstance(models.Model):
         self.mimetype = get_mimetype(filepath)
         #ext = self.mimetype.split('/')[1]
         filename = u"%09d-%s.%s" % (self.id, self.content.uid, ext)
-        print self.mimetype, filepath, filename
-        f = open(filepath, 'rb')
-        self.file.save(filename, File(f))
-        self.filesize = self.file.size
-        self.extension = ext
+        # print self.mimetype, filepath, filename
+        with open(filepath, 'rb') as f:
+            self.file.save(filename, File(f))
+            self.filesize = self.file.size
+            self.extension = ext
         self.save()
-        f.close()
 
     def set_metadata(self, data):
         self.duration = data.get('duration')
