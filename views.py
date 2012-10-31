@@ -33,6 +33,9 @@ from filehandler import handle_uploaded_file
 from models import Content, Uploadinfo, Videoinstance, Audioinstance
 from forms import UploadForm, SearchForm, ContentModelForm
 
+import logging
+logger = logging.getLogger('django')
+
 """
 TODO: make GeoIP work!
 TODO: try to make PyExiv2 work
@@ -247,9 +250,10 @@ def _get_placeholder_instance(c, text=None):
     draw = ImageDraw.Draw(im)
     try:
         font = ImageFont.truetype(imfont, imfontsize, encoding='unic')
-    except IOError:
+    except IOError, err:
+        logger.warning("Could not find font? %s" % str(err))
         font = ImageFont.load_default()
-        raise
+        #raise
     
     draw.text((5,10), imtext[0], font=font, fill='#333333')
     draw.text((5,35), imtext[1], font=font, fill='#333333')
@@ -330,6 +334,7 @@ def instance(request, uid, width, height, action, ext):
         response.write(data)
         response["Content-Type"] = "image/jpeg"
         response["Content-Length"] = len(data)
+        response["Accept-Ranges"] = "bytes"
         if 'attachment' in request.GET:
             response["Content-Disposition"] = "attachment; filename=%s-%s.jpg" % (c.originalfilename, c.uid)
         # Use 'updated' time in Last-Modified header (cache_page uses caching page)
