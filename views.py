@@ -291,10 +291,14 @@ def instance(request, uid, width, height, action, ext):
     #if contenttype in ['image', 'video']:
     if True or contenttype in ['image', 'video']:
         thumbnail = None
-        if contenttype == 'image':
-            thumbnail = c.image.thumbnail
-        elif contenttype == 'video':
-            thumbnail = c.video.thumbnail
+        # FIXME: check does the content have a thumbnail here!
+        try:
+            if contenttype == 'image' and c.image:
+                thumbnail = c.image.thumbnail
+            elif contenttype == 'video':
+                thumbnail = c.video.thumbnail
+        except Exception, err:
+            logger.warning(str(err))
         try:
             im = ImagePIL.open(thumbnail.path)
         except AttributeError, err:
