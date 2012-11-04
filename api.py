@@ -55,11 +55,13 @@ def content_post(request):
     #print str(request.FILES)
     for filefield_name, filename in handle_uploaded_file(request):
         P = request.POST
+        privacy = P.get('privacy') or P.get('visibility') # Backwards compatibility, TODO: remove in later version of API
+        if privacy is None: privacy = 'PRIVATE'
         c = Content(user = request.user,
                     author = P.get('sender', request.user.username),
                     caption = P.get('caption'),
                     keywords = P.get('tags'),
-                    privacy = P.get('privacy', 'PRIVATE'),
+                    privacy = privacy,
         )
         originalname = str(request.FILES[filefield_name])
         c.set_file(originalname, filename)
