@@ -19,6 +19,7 @@ import random
 import tempfile
 
 from django.conf import settings
+
 from django.core.files.storage import FileSystemStorage
 from django.core.files.base import ContentFile
 from django.core.files import File
@@ -26,6 +27,8 @@ from django.core.files import File
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import *
+
+from django.utils.translation import ugettext_lazy as _
 
 from content.filetools import get_videoinfo, get_imageinfo, get_mimetype
 from content.filetools import do_video_thumbnail
@@ -83,15 +86,17 @@ class Content(models.Model):
     status = models.CharField(max_length=40, default="UNPROCESSED",
                               editable=False)
     privacy = models.CharField(max_length=40, default="PRIVATE",
-                               choices=(("PRIVATE", "Private"),
-                                        ("RESTRICTED", "Restricted"),
-                                        ("PUBLIC", "Public")))
+                               verbose_name=_(u'Privacy'),
+                               choices=(("PRIVATE", _(u"Private")),
+                                        ("RESTRICTED", _(u"Restricted")),
+                                        ("PUBLIC", _(u"Public"))))
     uid = models.CharField(max_length=40, unique=True, db_index=True,
                            default=get_uid, editable=False)
     "Unique identifier for current Content"
     user = models.ForeignKey(User, blank=True, null=True)
     "The owner of this Content (Django User)"
     originalfilename = models.CharField(max_length=256, null=True,
+                                        verbose_name=_(u'Original file name'),
                                         editable=False)
     "Original filename of the uploaded file"
     filesize = models.IntegerField(null=True, editable=False)
@@ -117,15 +122,15 @@ class Content(models.Model):
     "Timestamp when current Content is not anymore available for others than owner."
 
     # Static fields (for human use)
-    title = models.CharField(max_length=200, blank=True)
+    title = models.CharField(max_length=200, blank=True, verbose_name=_(u'Title'))
     "Short title for Content, a few words max."
-    caption = models.TextField(blank=True)
+    caption = models.TextField(blank=True, verbose_name=_(u'Caption'))
     "Longer description of Content."
-    author = models.CharField(max_length=200, blank=True)
+    author = models.CharField(max_length=200, blank=True, verbose_name=_(u'Author'))
     "Content author's name or nickname."
-    keywords = models.CharField(max_length=500, blank=True)
+    keywords = models.CharField(max_length=500, blank=True, verbose_name=_(u'Keywords'))
     "Comma separated list of keywords/tags."
-    place = models.CharField(max_length=500, blank=True)
+    place = models.CharField(max_length=500, blank=True, verbose_name=_(u'Place'))
     "Country, state/province, city, address or other textual description."
     # license
     # origin, e.g. City museum, John Smith's photo album
