@@ -2,20 +2,20 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
+# 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2012-11-04 10:08+0200\n"
-"PO-Revision-Date: 2012-07-08 10:44\n"
+"POT-Creation-Date: 2012-11-04 17:28+0200\n"
+"PO-Revision-Date: 2012-11-04 17:30\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
 "X-Translated-Using: django-rosetta 0.6.8\n"
 
@@ -40,11 +40,11 @@ msgstr ""
 
 #: api.py:116
 msgid "Changes saved"
-msgstr ""
+msgstr "Muutokset on tallennettu"
 
 #: api.py:123
 msgid "Not implemented yet, sorry!"
-msgstr ""
+msgstr "Ei vielä toteutettu!"
 
 #: forms.py:14
 msgid "File"
@@ -140,7 +140,7 @@ msgstr "Viimeisimmät tiedostot"
 
 #: templates/content_base.html:63
 msgid "Original time"
-msgstr ""
+msgstr "Alkuperäinen aika"
 
 #: templates/content_base.html:64
 msgid "Added"
@@ -157,18 +157,13 @@ msgstr "Etsi nykyinen sijaintisi"
 #: templates/content_html5upload.html:14
 msgid ""
 "\n"
-"<p>If you have HTML5 capable browser (Chrome, Safari 5+, Firefox 5+) you "
-"can\n"
-"upload multiple files at the same time by dragging them below from your file "
-"manager or other application\n"
+"<p>If you have HTML5 capable browser (Chrome, Safari 5+, Firefox 5+) you can\n"
+"upload multiple files at the same time by dragging them below from your file manager or other application\n"
 "or by clicking Add files... button.\n"
 "</p>\n"
 msgstr ""
 "\n"
-"<p>Jos käytät HTML5-yhteensopivaa selainta (Chrome, Safari 5+, Firefox 5+) "
-"voi lähettää useita tiedostoja samalla kerralla raahaamalla ne "
-"tiedostojenhallintasovelluksesta ja tiputtamalla tämän tekstin alapuolelle "
-"tai klikkaamalla \"Lisää tiedostoja...\" nappia.\n"
+"<p>Jos käytät HTML5-yhteensopivaa selainta (Chrome, Safari 5+, Firefox 5+) voi lähettää useita tiedostoja samalla kerralla raahaamalla ne tiedostojenhallintasovelluksesta ja tiputtamalla tämän tekstin alapuolelle tai klikkaamalla \"Lisää tiedostoja...\" nappia.\n"
 "</p>\n"
 
 #: templates/content_html5upload.html:26
