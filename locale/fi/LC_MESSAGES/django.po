@@ -76,43 +76,43 @@ msgstr "Kirjoita vähintään 2 merkkiä."
 
 #: models.py:89
 msgid "Privacy"
-msgstr ""
+msgstr "Yksityisyys"
 
 #: models.py:90
 msgid "Private"
-msgstr ""
+msgstr "Yksityinen"
 
 #: models.py:91
 msgid "Restricted"
-msgstr ""
+msgstr "Rajoitettu"
 
 #: models.py:92
 msgid "Public"
-msgstr ""
+msgstr "Julkinen"
 
 #: models.py:99
 msgid "Original file name"
-msgstr ""
+msgstr "Alkuperäinen tiedostonimi"
 
 #: models.py:125
 msgid "Title"
-msgstr ""
+msgstr "Otsikko"
 
 #: models.py:127
 msgid "Caption"
-msgstr ""
+msgstr "Kuvateksti"
 
 #: models.py:129
 msgid "Author"
-msgstr ""
+msgstr "Tekijä"
 
 #: models.py:131
 msgid "Keywords"
-msgstr ""
+msgstr "Asiasanat"
 
 #: models.py:133
 msgid "Place"
-msgstr ""
+msgstr "Paikka"
 
 #: views.py:216
 msgid "Form was saved successfully"
