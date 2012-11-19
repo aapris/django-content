@@ -305,11 +305,12 @@ def instance(request, uid, width, height, action, ext):
             print "No thumbnail in non-video/image Content ", c.uid, str(err)
             im = _get_placeholder_instance(c)
         except IOError, err:
-            print "IOERROR in Content ", c.uid, str(err)
-            raise
+            msg = "IOERROR in Content %s: %s" % (c.uid, str(err))
+            logger.error(msg)
             return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
         except ValueError, err:
-            print "ValueERROR in Content, missing thumbnail:", c.uid, str(err)
+            msg = "ValueERROR in Content, missing thumbnail %s: %s" % (c.uid, str(err))
+            logger.warning(msg)
             im = _get_placeholder_instance(c, text=u'Missing thumbnail')
             #return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
         size = int(width), int(height)
