@@ -243,7 +243,10 @@ def _get_placeholder_instance(c, text=None):
     imfont = os.path.join('mestadb', 'Arial.ttf')
     imfontsize = 22
     imtext = c.mimetype if text is None else text
-    imtext = imtext.replace('/', ' ').split(' ')
+    if imtext:
+        imtext = imtext.replace('/', ' ').split(' ')
+    else:
+        imtext = [u'Broken', u'file']
     if len(imtext) == 1:
         imtext.append(u'')
     im = ImagePIL.new(immode, imsize, '#eeeeee')
