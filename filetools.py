@@ -280,12 +280,19 @@ def get_imageinfo(filepath):
     info['lat'], info['lon'] = get_lat_lon(exif_data)
     if 'DateTimeOriginal' in exif_data:
         try:
-            info['datetime'] = datetime.datetime.strptime(exif_data['DateTimeOriginal'],
-                                                          '%Y:%m:%d %H:%M:%S').replace(tzinfo=timezone.utc)
-            info['timestamp'] = time.strptime(exif_data['DateTimeOriginal'], '%Y:%m:%d %H:%M:%S')
+            datestring = exif_data.get('DateTimeOriginal', '').strip('\0') # remove possible null bytes
+            info['datetime'] = datetime.datetime.strptime(datestring,
+                                                          '%Y:%m:%d %H:%M:%S')#.replace(tzinfo=timezone.utc)
+            info['timestamp'] = time.strptime(datestring, '%Y:%m:%d %H:%M:%S')
+        except ValueError, err: # E.g. value is '0000:00:00 00:00:00\x00'
+            print "filetoos.py/get_imageinfo(): ", err
+        except TypeError, err: # E.g. value is '4:24:26\x002004:06:25 0'
+            print "filetoos.py/get_imageinfo(): ", err
         except Exception, err:
             #print exiftime
-            print err
+            print "filetoos.py/get_imageinfo(): ", err
+            print "WRONG DATE: '"+ datestring + "'"
+            print exif_data
             raise
             pass
 
