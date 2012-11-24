@@ -16,6 +16,14 @@ or by clicking Add files... button.
 
 <div id="fileupload">
     <form action="" method="POST" enctype="multipart/form-data">{% csrf_token %}
+<!--
+        <label>{% trans "Title" %}:<br><input type="text" name="title"></label><br>
+        <label>{% trans "Caption" %}:<br><textarea name="caption"></textarea></label><br>
+        <label>{% trans "Author" %}:<br><input type="text" name="author"></label>
+-->
+<table>
+{{ metadataform }}
+</table>
         <div class="fileupload-buttonbar">
             <label class="fileinput-button">
                 <span>{% trans 'Add files...' %}</span>
