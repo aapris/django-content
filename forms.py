@@ -6,13 +6,23 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import smart_unicode, force_unicode
 
 from filehandler import handle_uploaded_file
-from models import Content
+from models import Content, CONTENT_PRIVACY_CHOICES
 
 
 class UploadForm(forms.Form):
     """Simple upload form."""
     file = forms.FileField(label=_(u'File'), help_text=_(u"Select a file from your computer"),
                            error_messages={'required': _(u'Select a file from your computer, please!')})
+
+
+class UploadMetadataForm(forms.Form):
+    """Form for upload metadata."""
+    title = forms.CharField(label=_(u'Title'), help_text=_(u"Optional title"))
+    caption = forms.CharField(label=_(u'Caption'), help_text=_(u"Files caption or description"))
+    author = forms.CharField(label=_(u'Author'), help_text=_(u"Author's name"))
+    privacy = forms.ChoiceField(label=_(u'Privacy'),
+                              widget=forms.RadioSelect(),
+                              required=True, choices=CONTENT_PRIVACY_CHOICES)
 
 
 class ContentModelForm(forms.ModelForm):

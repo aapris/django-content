@@ -76,6 +76,11 @@ def get_uid(length=12):
     return ''.join([alphanum[random.randint(0, len(alphanum) - 1)] for i in
                     xrange(length)])
 
+CONTENT_PRIVACY_CHOICES = (
+    ("PRIVATE", _(u"Private")),
+    ("RESTRICTED", _(u"Restricted")),
+    ("PUBLIC", _(u"Public"))
+)
 
 class Content(models.Model):
     """
@@ -87,9 +92,7 @@ class Content(models.Model):
                               editable=False)
     privacy = models.CharField(max_length=40, default="PRIVATE",
                                verbose_name=_(u'Privacy'),
-                               choices=(("PRIVATE", _(u"Private")),
-                                        ("RESTRICTED", _(u"Restricted")),
-                                        ("PUBLIC", _(u"Public"))))
+                               choices=CONTENT_PRIVACY_CHOICES)
     uid = models.CharField(max_length=40, unique=True, db_index=True,
                            default=get_uid, editable=False)
     "Unique identifier for current Content"
@@ -177,6 +180,9 @@ class Content(models.Model):
             self.mimetype = mime
         else:
             self.mimetype = mimetypes.guess_type(originalfilename)[0]
+        # TODO: if file is PDF, create thumbnail:
+        # convert -thumbnail x800 file.pdf[0] thumbnail.png
+        self.status = "PROCESSED"
         self.save()
 
 
