@@ -30,7 +30,7 @@ from django.contrib.gis.geos import *
 
 from django.utils.translation import ugettext_lazy as _
 
-from content.filetools import get_videoinfo, get_imageinfo, get_mimetype
+from content.filetools import get_videoinfo, get_imageinfo, get_mimetype, do_pdf_thumbnail
 from content.filetools import do_video_thumbnail
 
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS['CONTENT'])
@@ -111,6 +111,9 @@ class Content(models.Model):
     file = models.FileField(storage=content_storage,
                             upload_to=upload_split_by_1000, editable=False)
     "Actual Content"
+    preview = models.ImageField(storage=preview_storage, blank=True,
+                            upload_to=upload_split_by_1000, editable=False)
+    "Generated preview (available for images, videos and PDF files)"
     md5 = models.CharField(max_length=32, null=True, editable=False)
     "MD5 hash of original file in hex-format"
     sha1 = models.CharField(max_length=40, null=True, editable=False)
@@ -197,6 +200,8 @@ class Content(models.Model):
             except Image.DoesNotExist:
                 image = Image(content=self)
                 image.save() # Save new instance to the database
+                if image.thumbnail:
+                    self.preview = image.thumbnail
                 return image
         elif self.mimetype.startswith("video"):
             try:
@@ -205,16 +210,41 @@ class Content(models.Model):
                 video = Video(content=self)
                 video.save() # Save new instance to the database
                 video.generate_thumb()
+                if video.thumbnail:
+                    self.preview = video.thumbnail
                 return video
+        elif self.mimetype.startswith("application/pdf"):
+            tmp_file, tmp_name = tempfile.mkstemp()
+            tmp_name += '.png'
+            #print tmp_name
+            if do_pdf_thumbnail(self.file.path, tmp_name):
+                postfix = "%s-%s-%sx%s" % (THUMBNAIL_PARAMETERS)
+                filename = u"%09d-%s-%s.png" % (self.id, self.uid, postfix)
+                if os.path.isfile(tmp_name):
+                    with open(tmp_name, "rb") as f:
+                        #self.thumbnail.save(filename, ContentFile(f.read()))
+                        self.preview.save(filename, File(f))
+                    self.save()
+                    os.unlink(tmp_name)
+
         else:
             return None
 
+    def preview_ext(self):
+        """Return the file extension of preview if it exists."""
+        if self.preview:
+            root, ext = os.path.splitext(self.preview.path)
+            return ext.lstrip('.')
+        else:
+            return None
 
     def thumbnail(self):
         """
         Return thumbnail if it exists.
         Thumbnail is always an image (can be shown with <img> tag).
         """
+        if self.preview:
+            return self.preview
         if self.mimetype is None:
             return None
         elif self.mimetype.startswith("image"):
@@ -352,9 +382,9 @@ class Video(models.Model):
 
     def __unicode__(self):
         return u"Video: %s" % (self.content.originalfilename)
-        return u"Video: %s (%dx%dpx, %.2f sec)" % (
-                 self.content.originalfilename,
-                 self.width, self.height, self.duration)
+        #return u"Video: %s (%dx%dpx, %.2f sec)" % (
+        #         self.content.originalfilename,
+        #         self.width, self.height, self.duration)
 
     def set_metadata(self, data):
         self.width = data.get('width')
