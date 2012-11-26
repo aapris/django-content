@@ -32,7 +32,7 @@ import datetime
 import sys
 if __name__=='__main__':
     sys.path.append("..")
-#import os
+import os
 import re
 import time
 import subprocess
@@ -327,7 +327,7 @@ def do_video_thumbnail(src, target):
     """
     Create a thumbnail from video file 'src' and save it to 'target'.
     Return True if subprocess was called with error code 0.
-    TODO: make -ss configurable, now it is hardcoded 5 seconds.
+    TODO: make -ss configurable, now it is hardcoded 1 seconds.
 
     subprocess.check_call(
     ['ffmpeg', '-ss', '1', '-i', 'test_content/05012009044.mp4', '-vframes', '1', '-f', 'mjpeg', '-s', '320x240', 'test-1.jpg'])
@@ -341,7 +341,30 @@ def do_video_thumbnail(src, target):
             FFMPEG, '-y', '-ss', '1', '-i', src,
             '-vframes', '1', '-f', 'mjpeg', target
             ])
-        return True
+        if os.path.isfile(target):
+            return True
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        # TODO: log file and error here.
+        return False
+
+def do_pdf_thumbnail(src, target):
+    """
+    Create a thumbnail from a PDF file 'src' and save it to 'target'.
+    Return True if subprocess returns with error code 0 and target exits.
+    """
+    CONVERT = 'convert'
+    # convert -flatten  -geometry 1000x1000 foo.pdf[0] thumb.png
+    try:
+        cmd = [CONVERT, '-flatten', '-geometry', '1000x1000', src+'[0]', target]
+        print ' '.join(cmd)
+        subprocess.check_call(cmd)
+        # TODO: check also that target is really non-broken file
+        if os.path.isfile(target):
+            return True
+        else:
+            return False
     except subprocess.CalledProcessError:
         # TODO: log file and error here.
         return False
