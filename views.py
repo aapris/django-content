@@ -355,6 +355,84 @@ def instance(request, uid, width, height, action, ext):
         response["Content-Length"] = len(data)
         return response
 
+@cache_page(60 * 60)
+def view(request, uid, width, height, action, ext):
+    """
+    Return scaled JPEG/PNG instance of the Content, which has preview available
+    New size is determined from URL.
+    action can be '-crop'
+    """
+    # w, h = width, height
+    response = HttpResponse()
+    try:
+        content = Content.objects.get(uid=uid)
+    except Content.DoesNotExist:
+        raise Http404
+    if content.preview:
+        thumbnail = content.preview
+        #    logger.warning(str(err))
+        try:
+            im = ImagePIL.open(thumbnail.path)
+        except AttributeError, err:
+            print "No thumbnail in non-video/image Content ", content.uid, str(err)
+            im = _get_placeholder_instance(content)
+        except IOError, err:
+            msg = "IOERROR in Content %s: %s" % (content.uid, str(err))
+            logger.error(msg)
+            return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
+        except ValueError, err:
+            msg = "ValueERROR in Content, missing thumbnail %s: %s" % (content.uid, str(err))
+            logger.warning(msg)
+            im = _get_placeholder_instance(content, text=u'Missing thumbnail')
+            #return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
+        if width == '%d' and height == '%d':
+            size = 320, 240
+        else:
+            size = int(width), int(height)
+        if action == '-crop':
+            shorter_side = min(im.size)
+            side_divider = 1.0 * shorter_side / min(size)
+            crop_size = int(max(im.size) / side_divider) + 1
+            #print shorter_side, side_divider, im.size, crop_size
+            size = (crop_size, crop_size)
+            im.thumbnail(size, ImagePIL.ANTIALIAS)
+            margin = (max(im.size) - min(im.size)) / 2
+            crop_size = min(im.size)
+            if im.size[0] > im.size[1]: #horizontal
+                crop = [0 + margin, 0, margin + crop_size, crop_size]
+            else:
+                crop = [0, 0 + margin, crop_size, margin + crop_size]
+            im = im.crop(crop)
+        else:
+            im.thumbnail(size, ImagePIL.ANTIALIAS)
+        # TODO: use imagemagick and convert for better quality
+        response = HttpResponse()
+        tmp = StringIO.StringIO()
+        if thumbnail.path.endswith('png'):
+            im.save(tmp, "png")
+            response["Content-Type"] = "image/png"
+        else:
+            im.save(tmp, "jpeg", quality=90)
+            response["Content-Type"] = "image/jpeg"
+        data = tmp.getvalue()
+        tmp.close()
+        response.write(data)
+        response["Content-Length"] = len(data)
+        response["Accept-Ranges"] = "bytes"
+        if 'attachment' in request.GET:
+            response["Content-Disposition"] = "attachment; filename=%s-%s.jpg" % (content.originalfilename, c.uid)
+        # Use 'updated' time in Last-Modified header (cache_page uses caching page)
+        response['Last-Modified'] = content.updated.strftime('%a, %d %b %Y %H:%M:%S GMT')
+        return response
+    else:
+        data = "Requested %s %s %s %s %s " % (content.mimetype, uid, width, height, ext)
+        response.write(data)
+        response["Content-Type"] = "text/plain" #content_item.mime
+        response["Content-Length"] = len(data)
+        return response
+
+
+
 #@cache_page(60 * 60)
 def foobar(request, uid, id, ext):
     """
@@ -395,7 +473,7 @@ from django.core.servers.basehttp import FileWrapper
 
 #@login_required
 #@cache_page(60 * 60)
-def original(request, uid):
+def original(request, uid, filename = None):
     """
     Return original file.
     """
@@ -410,7 +488,10 @@ def original(request, uid):
     response["Content-Type"] = c.mimetype
     response['Content-Length'] = os.path.getsize(c.file.path)
     if 'attachment' in request.GET:
-        response["Content-Disposition"] = "attachment; filename=%s" % (c.originalfilename)
+        if filename:
+            response["Content-Disposition"] = "attachment"
+        else: # FIXME: this will fail if filename contains non-ascii chars
+            response["Content-Disposition"] = "attachment; filename=%s" % (c.originalfilename)
     #tmp = open(c.file.path, "rb")
     #data = tmp.read()
     #tmp.close()
