@@ -234,9 +234,9 @@ class Content(models.Model):
         """Return the file extension of preview if it exists."""
         if self.preview:
             root, ext = os.path.splitext(self.preview.path)
-            return ext.lstrip('.')
         else:
-            return None
+            root, ext = os.path.splitext(self.file.path)
+        return ext.lstrip('.')
 
     def thumbnail(self):
         """
