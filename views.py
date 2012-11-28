@@ -363,35 +363,48 @@ def view(request, uid, width, height, action, ext):
     action can be '-crop'
     """
     # w, h = width, height
-    response = HttpResponse()
+    #response = HttpResponse()
+    thumbnail = None
     try:
         content = Content.objects.get(uid=uid)
     except Content.DoesNotExist:
         raise Http404
-    thumb_format = "png"
+    # Find thumbnail, currently new place is content.preview, but content.image.thumbnail is still in use
     if content.preview:
         thumbnail = content.preview
+    else: # TODO: to be removed after image.thumbnails are converted to content.preview
         try:
-            im = ImagePIL.open(thumbnail.path)
-        except AttributeError, err:
-            print "No thumbnail in non-video/image Content ", content.uid, str(err)
-            im = _get_placeholder_instance(content)
-        except IOError, err:
-            msg = "IOERROR in Content %s: %s" % (content.uid, str(err))
-            logger.error(msg)
-            return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
-        except ValueError, err:
-            msg = "ValueERROR in Content, missing thumbnail %s: %s" % (content.uid, str(err))
-            logger.warning(msg)
-            im = _get_placeholder_instance(content, text=u'Missing thumbnail')
+            if content.mimetype.startswith('image') and content.image:
+                thumbnail = content.image.thumbnail
+            elif content.mimetype.startswith('video'):
+                thumbnail = content.video.thumbnail
+        except Exception, err:
+            logger.warning(str(err))
+    thumb_format = "png"
+    # Handle errors if thumbnail is not found or is not readable etc.
+    try:
+        im = ImagePIL.open(thumbnail.path)
         if thumbnail.path.endswith('png') is False:
             thumb_format = "jpeg"
-    else:
-        im = _get_placeholder_instance(content, text=u'No preview')
+    except AttributeError, err:
+        print "No thumbnail in non-video/image Content ", content.uid, str(err)
+        im = _get_placeholder_instance(content)
+    except IOError, err:
+        msg = "IOERROR in Content %s: %s" % (content.uid, str(err))
+        logger.error(msg)
+        return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
+    except ValueError, err:
+        msg = "ValueERROR in Content, missing thumbnail %s: %s" % (content.uid, str(err))
+        logger.warning(msg)
+        im = _get_placeholder_instance(content, text=u'Missing thumbnail')
+    # If we got here, we should have some kind of Image object.
+    # Width and height may be %d if the client uses preview_uri literally
+    # (it should replace them with integer).
     if width == '%d' and height == '%d':
         size = 320, 240
     else:
         size = int(width), int(height)
+    # Crop image if requested so
     if action == '-crop':
         shorter_side = min(im.size)
         side_divider = 1.0 * shorter_side / min(size)
@@ -408,10 +421,8 @@ def view(request, uid, width, height, action, ext):
         im = im.crop(crop)
     else:
         im.thumbnail(size, ImagePIL.ANTIALIAS)
-    # TODO: use imagemagick and convert for better quality
     response = HttpResponse()
     tmp = StringIO.StringIO()
-
     if thumb_format == "png":
         im.save(tmp, thumb_format)
         response["Content-Type"] = "image/png"
@@ -428,22 +439,12 @@ def view(request, uid, width, height, action, ext):
     # Use 'updated' time in Last-Modified header (cache_page uses caching page)
     response['Last-Modified'] = content.updated.strftime('%a, %d %b %Y %H:%M:%S GMT')
     return response
-#    else:
-#        im = _get_placeholder_instance(content)
-#        data = "Requested %s %s %s %s %s " % (content.mimetype, uid, width, height, ext)
-#        response.write(data)
-#        response["Content-Type"] = "text/plain" #content_item.mime
-#        response["Content-Length"] = len(data)
-#        return response
-
-
 
 #@cache_page(60 * 60)
 def foobar(request, uid, id, ext):
     """
-    Return scaled JPEG instance of the Content, which type is image.
-    New size is determined from URL.
-    action can be '-crop'
+    Return converted version of Content, if the format is video or audio
+    # TODO: rewrite
     """
     # w, h = width, height
     response = HttpResponse()
@@ -455,7 +456,6 @@ def foobar(request, uid, id, ext):
     vis = Videoinstance.objects.filter(content=c).filter(id=id)
     if ais.count() > 0:
         inst = ais[0]
-
     elif vis.count() > 0:
         inst = vis[0]
     else:
@@ -470,8 +470,6 @@ def foobar(request, uid, id, ext):
         # Use 'updated' time in Last-Modified header (cache_page uses caching page)
     response['Last-Modified'] = c.updated.strftime('%a, %d %b %Y %H:%M:%S GMT')
     return response
-
-
 
 
 from django.core.servers.basehttp import FileWrapper
