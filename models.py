@@ -358,11 +358,11 @@ class Image(models.Model):
             self.content.filetime = info['datetime']
         #elif 'timestamp' in info and self.content.filetime is None:
         #    self.content.filetime = time.strftime("%Y-%m-%d %H:%M:%S", info['timestamp'])
-        if 'title' in info and self.content.title is None:
+        if 'title' in info and not self.content.title:
             self.content.title = info['title']
-        if 'caption' in info and self.content.caption is None:
+        if 'caption' in info and not self.content.caption:
             self.content.caption = info['caption']
-        if 'keywords' in info and self.content.keywords is None:
+        if 'keywords' in info and not self.content.keywords:
             self.content.keywords = info['keywords']
         # TODO: author and other keys, see filetools.get_imageinfo and iptcinfo.py
         super(Image, self).save(*args, **kwargs) # Call the "real" save() method.
