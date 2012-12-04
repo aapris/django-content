@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-11-04 17:28+0200\n"
-"PO-Revision-Date: 2012-11-04 17:31\n"
+"PO-Revision-Date: 2012-12-04 13:27\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -75,43 +75,43 @@ msgstr ""
 
 #: models.py:89
 msgid "Privacy"
-msgstr "Yksityisyys"
+msgstr ""
 
 #: models.py:90
 msgid "Private"
-msgstr "Yksityinen"
+msgstr ""
 
 #: models.py:91
 msgid "Restricted"
-msgstr "Rajoitettu"
+msgstr ""
 
 #: models.py:92
 msgid "Public"
-msgstr "Julkinen"
+msgstr ""
 
 #: models.py:99
 msgid "Original file name"
-msgstr "Alkuperäinen tiedostonimi"
+msgstr ""
 
 #: models.py:125
 msgid "Title"
-msgstr "Otsikko"
+msgstr ""
 
 #: models.py:127
 msgid "Caption"
-msgstr "Kuvateksti"
+msgstr ""
 
 #: models.py:129
 msgid "Author"
-msgstr "Tekijä"
+msgstr ""
 
 #: models.py:131
 msgid "Keywords"
-msgstr "Asiasanat"
+msgstr ""
 
 #: models.py:133
 msgid "Place"
-msgstr "Paikka"
+msgstr ""
 
 #: views.py:216
 msgid "Form was saved successfully"
