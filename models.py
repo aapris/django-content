@@ -8,6 +8,7 @@ about duration, bitrate, dimensions etc.
 # TODO: implement Image/Video/Audio Instance classes, which save conversions
 # to different formats and sizes (e.g. audio->mp3+ogg, video->mp4+theora).
 # TODO: possibility to save more than one thumbnails of a video?
+# TODO: make Geo features optional, e.g. create conditional point field
 
 
 import os
