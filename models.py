@@ -34,7 +34,9 @@ from django.utils.translation import ugettext_lazy as _
 from content.filetools import get_videoinfo, get_imageinfo, get_mimetype, do_pdf_thumbnail
 from content.filetools import do_video_thumbnail
 
+# Original files are saved in content_storage
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS['CONTENT'])
+# Generated dynamic files (previews, video and audio instances) are in 'var'
 preview_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['PREVIEW'])
 video_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['VIDEO'])
 audio_storage = FileSystemStorage(location=settings.APP_VAR_DIRS['AUDIO'])
