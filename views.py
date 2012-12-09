@@ -465,6 +465,11 @@ def foobar(request, uid, id, ext):
         response.write(f.read())
     response["Content-Type"] = inst.mimetype
     response["Content-Length"] = inst.filesize
+    # These are needed to make <video> allow restarting the video
+    #Content-Range: bytes 0-318464/318465
+    #Accept-Ranges: bytes
+    response["Content-Range"] = "bytes 0-%d/%d" % (inst.filesize - 1, inst.filesize)
+    response["Accept-Ranges"] = "bytes"
     if 'attachment' in request.GET:
         response["Content-Disposition"] = "attachment; filename=%s-%s.%s" % (c.originalfilename, c.uid, ext)
         # Use 'updated' time in Last-Modified header (cache_page uses caching page)
