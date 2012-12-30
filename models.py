@@ -289,6 +289,7 @@ class Image(models.Model):
     "Original image must be rotated n degrees CLOCKWISE before showing."
     thumbnail = models.ImageField(storage=preview_storage, upload_to=upload_split_by_1000, editable=False)
 
+    # FIXME: this is probably not in use
     def orientation(self):
         if self.width > self.height:
             return u'horizontal'
@@ -340,6 +341,7 @@ class Image(models.Model):
         self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
 
     def save(self, *args, **kwargs):
+        im = None
         if self.content.file is not None and \
           (self.width is None or self.height is None):
             try:
@@ -349,7 +351,6 @@ class Image(models.Model):
                 self.content.status = "INVALID"
                 self.content.save()
                 return
-            self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
         info = get_imageinfo(self.content.file.path)
         #print type(info)
         #print info # NOTE: this print may raise exception below with some images !?!
@@ -367,6 +368,17 @@ class Image(models.Model):
             self.content.caption = info['caption']
         if 'keywords' in info and not self.content.keywords:
             self.content.keywords = info['keywords']
+        try: # Handle exif orientation
+            orientation = info['exif']['Image Orientation'].values[0]
+            if self.rotate == 0:
+                if orientation == 3:   self.rotate = 180
+                elif orientation == 6: self.rotate = 90
+                elif orientation == 8: self.rotate = 270
+        except: # No exif orientation available
+            # TODO: log error
+            pass
+        if im:
+            self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
         # TODO: author and other keys, see filetools.get_imageinfo and iptcinfo.py
         super(Image, self).save(*args, **kwargs) # Call the "real" save() method.
         self.content.status = "PROCESSED"
