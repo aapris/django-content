@@ -453,7 +453,11 @@ def _test_image(filepath):
         del info['exif']['JPEGThumbnail']
     #print info['exif']
     print info['exif'].keys()
-    print ('%(lat).6f,%(lon).6f' % (info)) if 'lat' in info else "No lat,lon"
+    print ('%(lat).6f,%(lon).6f' % (info)) if 'lat' in info and info['lat'] else "No lat,lon"
+    #if 'Image Orientation' in info['exif']: print "Orientation ", info['exif']['Image Orientation']
+    #print dir(info['exif']['Image Orientation'])
+    print "ORIENTATION", info['exif']['Image Orientation'].values[0]
+    #print type(info['exif']['Image Orientation'])
     sys.exit(0)
     # w, h, format, quality, rotate
     THUMBNAIL_PARAMETERS = (200, 200, 'JPEG', 80, 0)
@@ -476,16 +480,16 @@ def _test_audio(filepath):
 if __name__=='__main__':
     filepath = sys.argv[1]
     mime = get_mimetype(filepath)
-    type = mime.split('/')[0]
-    print "testing", type, filepath
-    if type == 'image':
+    _type = mime.split('/')[0]
+    #print "testing", _type, filepath
+    if _type == 'image':
         _test_image(filepath)
-    elif type == 'video':
+    elif _type == 'video':
         #get_ffmpeg_videoinfo
         info = get_ffmpeg_videoinfo(filepath)
         if is_video(info):
             _test_video(filepath)
         elif is_audio(info):
             _test_audio(filepath)
-    elif type == 'audio':
+    elif _type == 'audio':
         _test_audio(filepath)
