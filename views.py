@@ -333,7 +333,6 @@ def instance(request, uid, width, height, action, ext):
             im = im.crop(crop)
         else:
             im.thumbnail(size, ImagePIL.ANTIALIAS)
-        # TODO: use imagemagick and convert for better quality
         tmp = StringIO.StringIO()
         im.save(tmp, "jpeg", quality=90)
         data = tmp.getvalue()
