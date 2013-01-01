@@ -18,6 +18,7 @@ import Image as ImagePIL
 import string
 import random
 import tempfile
+import StringIO
 
 from django.conf import settings
 
@@ -322,10 +323,10 @@ class Image(models.Model):
         elif self.rotate == 270:
             im = im.transpose(ImagePIL.ROTATE_90)
         im.thumbnail(size, ImagePIL.ANTIALIAS)
-        # TODO: use imagemagick and convert
         # Save resized image to a temporary file
-        # NOTE: the size will be increased if original is smaller than size
-        tmp = tempfile.NamedTemporaryFile()
+        # TODO: use StringIO
+        tmp = StringIO.StringIO()
+        #tmp = tempfile.NamedTemporaryFile()
         im.save(tmp, "jpeg", quality=t[3])
         tmp.seek(0)
         data = tmp.read()
