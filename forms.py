@@ -17,11 +17,15 @@ class UploadForm(forms.Form):
 
 class UploadMetadataForm(forms.Form):
     """Form for upload metadata."""
-    title = forms.CharField(label=_(u'Title'), required=False, help_text=_(u"Optional title"))
-    caption = forms.CharField(label=_(u'Caption'), required=False, help_text=_(u"Files caption or description"))
-    author = forms.CharField(label=_(u'Author'), required=False, help_text=_(u"Author's name"))
+    #title = forms.CharField(label=_(u'Title'), required=False, help_text=_(u"Optional title"))
+    #caption = forms.CharField(label=_(u'Caption'), required=False, help_text=_(u"Files caption or description"))
+    #author = forms.CharField(label=_(u'Author'), required=False, help_text=_(u"Author's name"))
+    #title = forms.CharField(label=_(u'Title'), required=False, help_text=_(u"Optional title"))
+    caption = forms.CharField(label=_(u'Title'), required=False)
+    keywords = forms.CharField(label=_(u'Keywords'), required=False)
+    author = forms.CharField(label=_(u'Author'), required=False)
     privacy = forms.ChoiceField(label=_(u'Privacy'),
-                              widget=forms.RadioSelect(),
+#                              widget=forms.RadioSelect(),
                               required=True, choices=CONTENT_PRIVACY_CHOICES)
 
 
