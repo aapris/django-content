@@ -28,9 +28,19 @@ $(document).ready(function() {
         .bind('fileuploaddrop', function (e, data) {show_uploadbuttonbar()})
         .bind('fileuploadchange', function (e, data) {show_uploadbuttonbar()});
 
+    $("#myTags").tagit({
+        fieldName: "keyword_tags",
+        //availableTags: ["food", "drink", "nature", "view", "people", "action", "architecture"],
+        autocomplete: {delay: 0, minLength: 2, source: '{% url "comeup:autocomplete" %}'}
+    });
+
 });
 
 </script>
+
+<!-- For Tag-it -->
+<link rel="stylesheet" href="{% get_static_prefix %}js/jquery/themes/base/minified/jquery-ui.min.css">
+<link rel="stylesheet" href="{% get_static_prefix %}js/jquery/plugins/jquery-tagit/jquery.tagit.css">
 
 <!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
 <link rel="stylesheet" href="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/css/jquery.fileupload-ui.css">
@@ -38,7 +48,6 @@ $(document).ready(function() {
 <noscript><link rel="stylesheet" href="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/css/jquery.fileupload-ui-noscript.css"></noscript>
 <!-- Shim to make HTML5 elements usable in older Internet Explorer versions -->
 <!--[if lt IE 9]><script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
-
 
 <div class="container">
     <div class="page-header">
@@ -85,7 +94,27 @@ or by clicking Add files... button.
         <div class="fileupload-loading"></div>
         <!-- The table listing the files available for upload/download -->
         <table role="presentation" class="table table-striped"><tbody class="files" data-toggle="modal-gallery" data-target="#modal-gallery"></tbody></table>
-        {{ metadataform }}
+
+{% with metadataform.caption as field %}
+<label for="{{ field.auto_id }}">{{ field.label }}</label>
+{{ field }}
+{% endwith %}
+<label>{% trans "Keywords" %}</label>
+<ul id="myTags">
+    <!-- Existing list items will be pre-added to the tags -->
+    <!--
+    <li>Tag1</li>
+    <li>Tag2</li>
+    -->
+</ul>
+{% with metadataform.author as field %}
+{{ field.label_tag }} {{ field }}
+{% endwith %}
+
+{% with metadataform.privacy as field %}
+{{ field.label_tag }} {{ field }}
+{% endwith %}
+
         <div class="row fileupload-buttonbar" id="uploadbuttonbar" style="display: none">
             <div class="span7">
                 <button type="submit" class="btn btn-primary start">
@@ -183,8 +212,18 @@ or by clicking Add files... button.
 <!--
 <script src="{% get_static_prefix %}js/jquery/jquery.min.js"></script>
 -->
+
+
+
+<script src="{% get_static_prefix %}js/jquery/ui/minified/jquery-ui.min.js"></script>
+
+<!-- Note, this won't work:
+<script src="{% get_static_prefix %}js/jquery/ui/minified/jquery.ui.widget.min.js"></script>
+Must be this:
+-->
 <!-- The jQuery UI widget factory, can be omitted if jQuery UI is already included -->
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/vendor/jquery.ui.widget.js"></script>
+
 <!-- The Templates plugin is included to render the upload/download listings -->
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/tmpl.min.js"></script>
 <!-- The Load Image plugin is included for the preview images and image resizing functionality -->
@@ -204,7 +243,11 @@ or by clicking Add files... button.
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/jquery.fileupload-fp.js"></script>
 <!-- The File Upload user interface plugin -->
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/jquery.fileupload-ui.js"></script>
+
 <!-- The main application script -->
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/main.js"></script>
 <!-- The XDomainRequest Transport is included for cross-domain file deletion for IE8+ -->
 <!--[if gte IE 8]><script src="js/cors/jquery.xdr-transport.js"></script><![endif]-->
+
+
+<script src="{% get_static_prefix %}js/jquery/plugins/jquery-tagit/tag-it.min.js"></script>
