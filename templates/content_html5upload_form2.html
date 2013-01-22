@@ -11,6 +11,27 @@
  * http://www.opensource.org/licenses/MIT
  */
 -->
+
+<script type="text/javascript">
+
+function show_uploadbuttonbar() {
+    $('#uploadbuttonbar').show('fast');
+}
+
+$(document).ready(function() {
+
+    $('#fileinput').bind('change', function (e) {
+        show_uploadbuttonbar();
+    });
+
+    $('#fileupload')
+        .bind('fileuploaddrop', function (e, data) {show_uploadbuttonbar()})
+        .bind('fileuploadchange', function (e, data) {show_uploadbuttonbar()});
+
+});
+
+</script>
+
 <!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
 <link rel="stylesheet" href="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/css/jquery.fileupload-ui.css">
 <!-- CSS adjustments for browsers with JavaScript disabled -->
@@ -46,7 +67,7 @@ or by clicking Add files... button.
                 <span class="btn btn-success fileinput-button">
                     <i class="icon-plus icon-white"></i>
                     <span>{% trans "Add files..." %}</span>
-                    <input type="file" name="file" multiple>
+                    <input type="file" id="fileinput" name="file" multiple>
                 </span>
             </div>
             <!-- The global progress information -->
@@ -65,7 +86,7 @@ or by clicking Add files... button.
         <!-- The table listing the files available for upload/download -->
         <table role="presentation" class="table table-striped"><tbody class="files" data-toggle="modal-gallery" data-target="#modal-gallery"></tbody></table>
         {{ metadataform }}
-        <div class="row fileupload-buttonbar">
+        <div class="row fileupload-buttonbar" id="uploadbuttonbar" style="display: none">
             <div class="span7">
                 <button type="submit" class="btn btn-primary start">
                     <i class="icon-upload icon-white"></i>
