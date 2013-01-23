@@ -257,7 +257,7 @@ $(function(){
 <div id="content">
 
 <div id="preview_box">
-<img src="{% url content:instance uid=object.uid width='400' height='400' ext='jpg' %}" alt="" id="preview"/>
+<img src="{% url "content:instance" uid=object.uid width='400' height='400' ext='jpg' %}" alt="" id="preview"/>
 <table>
  <tr><td>File name:</td><td>{{ object.originalfilename }}</td></tr>
  <tr><td>File type:</td><td>{{ object.mimetype }}</td></tr>
