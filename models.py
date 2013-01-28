@@ -161,8 +161,8 @@ class Content(models.Model):
     # license
     # origin, e.g. City museum, John Smith's photo album
     # Links and relations to other content files
-    peers = models.ManyToManyField("self", blank=True, null=True, editable=True)
-    parent = models.ForeignKey("self", blank=True, null=True, editable=True)
+    peers = models.ManyToManyField("self", blank=True, null=True, editable=False)
+    parent = models.ForeignKey("self", blank=True, null=True, editable=False)
     linktype = models.CharField(max_length=500, blank=True)
     "Information of the type of child-parent relation."
     #point = models.CharField(max_length=500, blank=True, null=True, editable=False)
