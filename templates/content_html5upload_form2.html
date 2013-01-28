@@ -18,21 +18,31 @@ function show_uploadbuttonbar() {
     $('#uploadbuttonbar').show('fast');
 }
 
+function show_cancelbuttonbar() {
+    $('button.cancel').show('fast');
+    $('button.delete').show('fast');
+}
+
 $(document).ready(function() {
 
     $('#fileinput').bind('change', function (e) {
         show_uploadbuttonbar();
     });
+    // Try to open the dialogue on page load?
+    //$('#fileinput').trigger('click');
 
     $('#fileupload')
         .bind('fileuploaddrop', function (e, data) {show_uploadbuttonbar()})
-        .bind('fileuploadchange', function (e, data) {show_uploadbuttonbar()});
+        .bind('fileuploadchange', function (e, data) {show_uploadbuttonbar()})
+        .bind('fileuploaddone', function (e, data) {show_cancelbuttonbar()});
 
     $("#myTags").tagit({
         fieldName: "keyword_tags",
         //availableTags: ["food", "drink", "nature", "view", "people", "action", "architecture"],
         autocomplete: {delay: 0, minLength: 2, source: '{% url "comeup:autocomplete" %}'}
     });
+
+
 
 });
 
@@ -92,7 +102,16 @@ or by clicking Add files... button.
         <!-- The loading indicator is shown during file processing -->
         <div class="fileupload-loading"></div>
         <!-- The table listing the files available for upload/download -->
-        <table role="presentation" class="table table-striped"><tbody class="files" data-toggle="modal-gallery" data-target="#modal-gallery"></tbody></table>
+        <table role="presentation" class="table table-striped">
+        <tbody class="files" data-toggle="modal-gallery" data-target="#modal-gallery">
+        <tr>
+        <td><input type="checkbox" class="toggle"></td>
+        <td class="preview">Preview</td>
+        <td class="name">Filename</span></td>
+        <td class="size">Size</td>
+        </tr>
+        </tbody>
+        </table>
 
 {% with metadataform.caption as field %}
 <label for="{{ field.auto_id }}">{{ field.label }}</label>
@@ -101,10 +120,7 @@ or by clicking Add files... button.
 <label>{% trans "Keywords" %}</label>
 <ul id="myTags">
     <!-- Existing list items will be pre-added to the tags -->
-    <!--
-    <li>Tag1</li>
-    <li>Tag2</li>
-    -->
+    <!-- <li>Tag1</li>  -->
 </ul>
 {% with metadataform.author as field %}
 {{ field.label_tag }} {{ field }}
@@ -116,15 +132,15 @@ or by clicking Add files... button.
 
         <div class="row fileupload-buttonbar" id="uploadbuttonbar" style="display: none">
             <div class="span7">
-                <button type="submit" class="btn btn-primary start">
+                <button type="submit" class="btn btn-success start">
                     <i class="icon-upload icon-white"></i>
                     <span>{% trans "Start upload" %}</span>
                 </button>
-                <button type="reset" class="btn btn-warning cancel">
+                <button type="reset" class="btn cancel" style="display: none">
                     <i class="icon-ban-circle icon-white"></i>
                     <span>{% trans "Cancel upload" %}</span>
                 </button>
-                <button type="button" class="btn btn-danger delete">
+                <button type="button" class="btn delete" style="display: none">
                     <i class="icon-trash icon-white"></i>
                     <span>{% trans "Delete" %}</span>
                 </button>
@@ -146,6 +162,11 @@ or by clicking Add files... button.
     <br>
 </div>
 
+<style>
+    td.start, td.cancel, td.delete button {
+        display: none;
+    }
+</style>
 {% verbatim %}
 <!-- The template to display files available for upload -->
 <script id="template-upload" type="text/x-tmpl">
@@ -160,6 +181,7 @@ or by clicking Add files... button.
         <td>
             <div class="progress progress-success progress-striped active" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" style="width:0%;"></div></div>
         </td>
+
         <td class="start">{% if (!o.options.autoUpload) { %}
             <button class="btn btn-primary">
                 <i class="icon-upload icon-white"></i>
@@ -188,6 +210,13 @@ or by clicking Add files... button.
         <td class="size"><span>{%=o.formatFileSize(file.size)%}</span></td>
         <td class="error" colspan="2"><span class="label label-important">Error</span> {%=file.error%}</td>
         {% } else { %}
+        <td class="delete">
+            <button class="btn btn-danger" data-type="{%=file.delete_type%}" data-url="{%=file.delete_url%}"{% if (file.delete_with_credentials) { %} data-xhr-fields='{"withCredentials":true}'{% } %}>
+                <i class="icon-trash icon-white"></i>
+                <span>Delete</span>
+            </button>
+            <input type="checkbox" name="delete" value="1">
+        </td>
         <td class="preview">{% if (file.thumbnail_url) { %}
             <a href="{%=file.url%}" title="{%=file.name%}" data-gallery="gallery" download="{%=file.name%}"><img src="{%=file.thumbnail_url%}"></a>
             {% } %}</td>
@@ -197,13 +226,6 @@ or by clicking Add files... button.
         <td class="size"><span>{%=o.formatFileSize(file.size)%}</span></td>
         <td colspan="2"></td>
         {% } %}
-        <td class="delete">
-            <button class="btn btn-danger" data-type="{%=file.delete_type%}" data-url="{%=file.delete_url%}"{% if (file.delete_with_credentials) { %} data-xhr-fields='{"withCredentials":true}'{% } %}>
-                <i class="icon-trash icon-white"></i>
-                <span>Delete</span>
-            </button>
-            <input type="checkbox" name="delete" value="1">
-        </td>
     </tr>
     {% } %}
 </script>
