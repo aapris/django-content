@@ -86,6 +86,20 @@ CONTENT_PRIVACY_CHOICES = (
     ("PUBLIC", _(u"Public"))
 )
 
+class Group(models.Model):
+    """
+    """
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100)
+    description = models.TextField()
+    users = models.ManyToManyField(User, blank=True, editable=True, related_name='contentgroups')
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+    updated = models.DateTimeField(auto_now=True, editable=False)
+
+    def __unicode__(self):
+        return "%s" % (self.slug)
+
+
 class Content(models.Model):
     """
     Common fields for all content files. It would be useful to save
@@ -102,6 +116,8 @@ class Content(models.Model):
     "Unique identifier for current Content"
     user = models.ForeignKey(User, blank=True, null=True)
     "The owner of this Content (Django User)"
+    group = models.ForeignKey(Group, blank=True, null=True)
+    "The Content.Group for this Content"
     originalfilename = models.CharField(max_length=256, null=True,
                                         verbose_name=_(u'Original file name'),
                                         editable=False)

@@ -13,8 +13,18 @@ admin.site.register(Content, ContentAdmin)
 """
 
 from django.contrib import admin
+from models import Group
 from models import Content
 from models import Mail
+
+
+class GroupAdmin(admin.ModelAdmin):
+    search_fields = ('name', )
+    list_display = ('name', )
+    ordering = ('name', )
+    prepopulated_fields = {"slug": ("name",)}
+
+admin.site.register(Group, GroupAdmin)
 
 class ContentAdmin(admin.ModelAdmin):
     search_fields = ('title', 'caption', 'mimetype', 'caption')
