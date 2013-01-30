@@ -233,15 +233,22 @@ or by clicking Add files... button.
 -->
 
 
-
+<!-- NOTE: you must include
+jquery-ui.min.js
+jquery.ui.widget.min.js
 <script src="{% get_static_prefix %}js/jquery/ui/minified/jquery-ui.min.js"></script>
+<script src="{% get_static_prefix %}js/jquery/plugins/jquery-tagit/tag-it.min.js"></script>
+-->
+
 
 <!-- Note, this won't work:
 <script src="{% get_static_prefix %}js/jquery/ui/minified/jquery.ui.widget.min.js"></script>
 Must be this:
 -->
 <!-- The jQuery UI widget factory, can be omitted if jQuery UI is already included -->
+<!--
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/vendor/jquery.ui.widget.js"></script>
+-->
 
 <!-- The Templates plugin is included to render the upload/download listings -->
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/tmpl.min.js"></script>
@@ -267,6 +274,3 @@ Must be this:
 <script src="{% get_static_prefix %}js/jquery/plugins/jquery-file-upload2/js/main.js"></script>
 <!-- The XDomainRequest Transport is included for cross-domain file deletion for IE8+ -->
 <!--[if gte IE 8]><script src="js/cors/jquery.xdr-transport.js"></script><![endif]-->
-
-
-<script src="{% get_static_prefix %}js/jquery/plugins/jquery-tagit/tag-it.min.js"></script>
