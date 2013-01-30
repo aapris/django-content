@@ -82,7 +82,7 @@ def get_uid(length=12):
 
 CONTENT_PRIVACY_CHOICES = (
     ("PRIVATE", _(u"Private")),
-    ("RESTRICTED", _(u"Restricted")),
+    ("RESTRICTED", _(u"Group")),
     ("PUBLIC", _(u"Public"))
 )
 
