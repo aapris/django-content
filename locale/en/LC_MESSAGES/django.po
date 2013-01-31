@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-01-01 21:43+0000\n"
+"POT-Creation-Date: 2013-01-31 16:29+0200\n"
 "PO-Revision-Date: 2012-12-04 13:27\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -57,47 +57,35 @@ msgstr ""
 msgid "Select a file from your computer, please!"
 msgstr ""
 
-#: forms.py:20 models.py:135 templates/content_html5upload_form.html:20
+#: forms.py:24 models.py:151 templates/content_html5upload_form.html:20
 msgid "Title"
 msgstr ""
 
-#: forms.py:20
-msgid "Optional title"
+#: forms.py:25 models.py:157 templates/content_html5upload_form2.html:115
+msgid "Keywords"
 msgstr ""
 
-#: forms.py:21 models.py:137 templates/content_html5upload_form.html:21
-msgid "Caption"
-msgstr ""
-
-#: forms.py:21
-msgid "Files caption or description"
-msgstr ""
-
-#: forms.py:22 models.py:139 templates/content_html5upload_form.html:22
+#: forms.py:26 models.py:155 templates/content_html5upload_form.html:22
 msgid "Author"
 msgstr ""
 
-#: forms.py:22
-msgid "Author's name"
-msgstr ""
-
-#: forms.py:23 models.py:98
+#: forms.py:27 models.py:112
 msgid "Privacy"
 msgstr ""
 
-#: forms.py:30
+#: forms.py:34
 msgid "Coordinates (lat,lon)"
 msgstr ""
 
-#: forms.py:44
+#: forms.py:48
 msgid "Coordinates must be in format \"dd.dddd,dd.dddd\"."
 msgstr ""
 
-#: forms.py:50 templates/content_base.html:40
+#: forms.py:54 templates/content_base.html:40
 msgid "Quick search"
 msgstr ""
 
-#: forms.py:51
+#: forms.py:55
 msgid "Write at least 2 characters."
 msgstr ""
 
@@ -106,22 +94,22 @@ msgid "Private"
 msgstr ""
 
 #: models.py:85
-msgid "Restricted"
+msgid "Group"
 msgstr ""
 
 #: models.py:86
 msgid "Public"
 msgstr ""
 
-#: models.py:106
+#: models.py:122
 msgid "Original file name"
 msgstr ""
 
-#: models.py:141
-msgid "Keywords"
+#: models.py:153 templates/content_html5upload_form.html:21
+msgid "Caption"
 msgstr ""
 
-#: models.py:143
+#: models.py:159
 msgid "Place"
 msgstr ""
 
@@ -167,6 +155,7 @@ msgstr ""
 
 #: templates/content_html5upload.html:14
 #: templates/content_html5upload_form.html:6
+#: templates/content_html5upload_form2.html:64
 msgid ""
 "\n"
 "<p>If you have HTML5 capable browser (Chrome, Safari 5+, Firefox 5+) you "
@@ -184,17 +173,27 @@ msgstr ""
 
 #: templates/content_html5upload.html:29
 #: templates/content_html5upload_form.html:32
+#: templates/content_html5upload_form2.html:132
 msgid "Start upload"
 msgstr ""
 
 #: templates/content_html5upload.html:30
 #: templates/content_html5upload_form.html:33
+#: templates/content_html5upload_form2.html:136
 msgid "Cancel upload"
 msgstr ""
 
 #: templates/content_html5upload.html:31
 #: templates/content_html5upload_form.html:34
 msgid "Delete files"
+msgstr ""
+
+#: templates/content_html5upload_form2.html:82
+msgid "Add..."
+msgstr ""
+
+#: templates/content_html5upload_form2.html:140
+msgid "Delete"
 msgstr ""
 
 #: templates/content_upload.html:10
