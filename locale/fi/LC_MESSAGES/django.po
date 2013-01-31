@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2013-01-31 16:29+0200\n"
-"PO-Revision-Date: 2013-01-31 16:29\n"
+"PO-Revision-Date: 2013-01-31 16:31\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -165,7 +165,7 @@ msgid ""
 "</p>\n"
 msgstr ""
 "\n"
-"<p>Jos käytät HTML5-yhteensopivaa selainta (Chrome, Safari 5+, Firefox 5+) voi lähettää useita tiedostoja samalla kerralla raahaamalla ne tiedostojenhallintasovelluksesta ja tiputtamalla tämän tekstin alapuolelle tai klikkaamalla \"Lisää tiedostoja...\" nappia.\n"
+"<p>Jos käytät HTML5-yhteensopivaa selainta (Chrome, Safari 5+, Firefox 5+) voi lähettää useita tiedostoja samalla kerralla raahaamalla ne tiedostojenhallintasovelluksesta ja tiputtamalla tämän tekstin alapuolelle tai klikkaamalla \"Lisää...\" nappia.\n"
 "</p>\n"
 
 #: templates/content_html5upload.html:26
@@ -192,7 +192,7 @@ msgstr "Poista tiedostot"
 
 #: templates/content_html5upload_form2.html:82
 msgid "Add..."
-msgstr "Lähet..."
+msgstr "Lisää..."
 
 #: templates/content_html5upload_form2.html:140
 msgid "Delete"
@@ -200,7 +200,7 @@ msgstr "Poista"
 
 #: templates/content_upload.html:10
 msgid "Send"
-msgstr "Lähetä"
+msgstr "Aloita lähetys"
 
 #~ msgid "Optional title"
 #~ msgstr "Vapaaehtoinen otsikko"
