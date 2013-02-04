@@ -283,7 +283,7 @@ class Content(models.Model):
     def delete(self, *args, **kwargs):
         """
         Set Content.status = "DELETE". Real deletion (referencing Videos and
-        Audios, Video and AudioInstances) can be node later e.g. with
+        Audios, Video and AudioInstances) can be done later e.g. with
         some management command (not implemented yet).
         """
         if kwargs.get('purge', False) is True and self.status == 'DELETED':
