@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-01-31 16:29+0200\n"
+"POT-Creation-Date: 2013-02-04 09:08+0200\n"
 "PO-Revision-Date: 2012-12-04 13:27\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -61,7 +61,7 @@ msgstr ""
 msgid "Title"
 msgstr ""
 
-#: forms.py:25 models.py:157 templates/content_html5upload_form2.html:115
+#: forms.py:25 models.py:157 templates/content_html5upload_form2.html:128
 msgid "Keywords"
 msgstr ""
 
@@ -155,7 +155,7 @@ msgstr ""
 
 #: templates/content_html5upload.html:14
 #: templates/content_html5upload_form.html:6
-#: templates/content_html5upload_form2.html:64
+#: templates/content_html5upload_form2.html:91
 msgid ""
 "\n"
 "<p>If you have HTML5 capable browser (Chrome, Safari 5+, Firefox 5+) you "
@@ -173,13 +173,13 @@ msgstr ""
 
 #: templates/content_html5upload.html:29
 #: templates/content_html5upload_form.html:32
-#: templates/content_html5upload_form2.html:132
+#: templates/content_html5upload_form2.html:145
 msgid "Start upload"
 msgstr ""
 
 #: templates/content_html5upload.html:30
 #: templates/content_html5upload_form.html:33
-#: templates/content_html5upload_form2.html:136
+#: templates/content_html5upload_form2.html:150
 msgid "Cancel upload"
 msgstr ""
 
@@ -188,11 +188,11 @@ msgstr ""
 msgid "Delete files"
 msgstr ""
 
-#: templates/content_html5upload_form2.html:82
+#: templates/content_html5upload_form2.html:86
 msgid "Add..."
 msgstr ""
 
-#: templates/content_html5upload_form2.html:140
+#: templates/content_html5upload_form2.html:154
 msgid "Delete"
 msgstr ""
 

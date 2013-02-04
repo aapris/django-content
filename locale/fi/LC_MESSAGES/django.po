@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-01-31 16:29+0200\n"
-"PO-Revision-Date: 2013-01-31 16:31\n"
+"POT-Creation-Date: 2013-02-04 09:08+0200\n"
+"PO-Revision-Date: 2013-02-04 09:11\n"
 "Last-Translator:   <aapo@rista.net>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -22,21 +22,21 @@ msgstr ""
 #: api.py:78
 #, python-format
 msgid "Saved %d file(s)"
-msgstr ""
+msgstr "Talletettiin %d tiedostoa"
 
 #: api.py:85
 msgid "File not found in post"
-msgstr ""
+msgstr "Tiedostoa ei löytynyt lähetyksestä"
 
 #: api.py:98
 #, python-format
 msgid "Content uid=%s not found"
-msgstr ""
+msgstr "Content-objektia ei löytynyt"
 
 #: api.py:101
 #, python-format
 msgid "You are not owner of Content uid=%s"
-msgstr ""
+msgstr "Et ole pyydetyn Content-objektin omistaja"
 
 #: api.py:116
 msgid "Changes saved"
@@ -62,7 +62,7 @@ msgstr "Valitse tiedosto omalta tietokoneeltasi, ole hyvä!"
 msgid "Title"
 msgstr "Otsikko"
 
-#: forms.py:25 models.py:157 templates/content_html5upload_form2.html:115
+#: forms.py:25 models.py:157 templates/content_html5upload_form2.html:128
 msgid "Keywords"
 msgstr "Asiasanat"
 
@@ -156,7 +156,7 @@ msgstr "Etsi nykyinen sijaintisi"
 
 #: templates/content_html5upload.html:14
 #: templates/content_html5upload_form.html:6
-#: templates/content_html5upload_form2.html:64
+#: templates/content_html5upload_form2.html:91
 msgid ""
 "\n"
 "<p>If you have HTML5 capable browser (Chrome, Safari 5+, Firefox 5+) you can\n"
@@ -175,13 +175,13 @@ msgstr "Lisää tiedostoja..."
 
 #: templates/content_html5upload.html:29
 #: templates/content_html5upload_form.html:32
-#: templates/content_html5upload_form2.html:132
+#: templates/content_html5upload_form2.html:145
 msgid "Start upload"
 msgstr "Aloita lähetys"
 
 #: templates/content_html5upload.html:30
 #: templates/content_html5upload_form.html:33
-#: templates/content_html5upload_form2.html:136
+#: templates/content_html5upload_form2.html:150
 msgid "Cancel upload"
 msgstr "Peruuta lähetys"
 
@@ -190,11 +190,11 @@ msgstr "Peruuta lähetys"
 msgid "Delete files"
 msgstr "Poista tiedostot"
 
-#: templates/content_html5upload_form2.html:82
+#: templates/content_html5upload_form2.html:86
 msgid "Add..."
 msgstr "Lisää..."
 
-#: templates/content_html5upload_form2.html:140
+#: templates/content_html5upload_form2.html:154
 msgid "Delete"
 msgstr "Poista"
 
@@ -202,36 +202,3 @@ msgstr "Poista"
 msgid "Send"
 msgstr "Aloita lähetys"
 
-#~ msgid "Optional title"
-#~ msgstr "Vapaaehtoinen otsikko"
-
-#~ msgid "Files caption or description"
-#~ msgstr "Tiedostojen kuvateksti tai kuvaus"
-
-#~ msgid "Author's name"
-#~ msgstr "Tekijän nimi"
-
-#~ msgid "Restricted"
-#~ msgstr "Rajoitettu"
-
-#~ msgid "Message"
-#~ msgstr "Viesti"
-
-#~ msgid "Comment"
-#~ msgstr "Kommentti"
-
-#~ msgid "No preview"
-#~ msgstr "Ei esikatselukuvaa"
-
-#~ msgid "ago"
-#~ msgstr "sitten"
-
-#~ msgid "Content type: plain text (no file attachment)"
-#~ msgstr "Tyyppi: teksti (ei tiedostoliitettä)"
-
-#~ msgid ""
-#~ "\n"
-#~ "Help for 4Dest android client will be here.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "4Dnest Android-sovelluksen ohje tulee tänne.\n"
