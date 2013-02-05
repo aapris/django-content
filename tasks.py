@@ -3,7 +3,7 @@ from celery.task import Task
 from celery import task
 from django.core import management
 
-# This is having some problems with celery 3.0.11 and mod_wsgi
+# This is having some problems with celery 3.0.13 and mod_wsgi
 class CreateInstancesTask(Task):
     def run(self, pk):
         management.call_command('create_instances', verbosity=0, pk=pk)
