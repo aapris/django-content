@@ -49,8 +49,46 @@ import pipeffmpeg
 import logging
 logger = logging.getLogger('django')
 
-FFMPEG = '/opt/local/bin/ffmpeg'
-FFMPEG = 'ffmpeg'
+FFMPEG_PATHS = [
+    '/opt/local/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+    '/usr/bin/ffmpeg',
+    ]
+
+# Insert user defined ffmpeg to the first to test
+try:
+    from django.conf import settings
+    FFMPEG = getattr(settings, 'FFMPEG', None)
+    if FFMPEG:
+        FFMPEG_PATHS.insert(0, FFMPEG)
+except ImportError:
+    pass
+
+
+def find_ffmpeg():
+    ffmpeg_found = False
+    for FFMPEG in FFMPEG_PATHS:
+        #print "Trying", FFMPEG
+        if os.path.isfile(FFMPEG):
+            ffmpeg_found = True
+            break
+    if ffmpeg_found is False:
+        FFMPEG = 'ffmpeg'
+    ffmpeg_cmd = [FFMPEG]
+    try:
+        p = subprocess.Popen(ffmpeg_cmd,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT)
+        out = p.stdout.readlines()
+        print "USING:", out.pop(0)
+        return FFMPEG
+    except OSError, err:
+        print str(err) +  ':', FFMPEG
+        print "Video and audio conversions will not work."
+        print "Concider putting ffmpeg binary into your local_settings.py"
+        return None
+
+FFMPEG = find_ffmpeg()
 
 def guess_encoding(str):
     """
