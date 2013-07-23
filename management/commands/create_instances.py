@@ -25,6 +25,7 @@ from content.models import Content, Mail
 from content.filetools import get_ffmpeg_videoinfo, get_videoinfo, get_audioinfo
 from content.filetools import create_videoinstance, create_audioinstance
 from content.filetools import is_audio, is_video
+import content.filetools2
 
 from content.models import Videoinstance, Audioinstance
 
@@ -87,6 +88,77 @@ def create_instances(limit, pk, uid):
                     ai.save()
                     print ai.mimetype, ai.duration
 
+def create_instances2(limit, pk, uid):
+    qset = Q(mimetype__startswith='video') | Q(mimetype__startswith='audio')
+    contents = Content.objects.filter(qset)
+    if uid: contents = contents.filter(uid=uid)
+    if pk: contents = contents.filter(pk=pk)
+    contents.order_by('-created')
+    if limit > 0:
+        contents = contents[:limit]
+    for c in contents:
+        old_instances = list(c.audioinstances.all()) + list(c.videoinstances.all())
+        for inst in old_instances:
+            if inst.file and os.path.isfile(inst.file.path):
+                #print "DELETING", inst.file.path
+                os.unlink(inst.file.path)
+            inst.delete()
+        ffp = content.filetools2.FFProbe(c.file.path)
+        if ffp.is_video():
+            finfo = ffp.get_videoinfo()
+            print finfo
+            params = (
+                #('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']),
+                #('mp4', 'video/mp4', ['-deinterlace', '-vcodec', 'libx264', '-vsync', '2', '-acodec', 'libfaac', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
+                #('mp4', 'video/mp4', ['-deinterlace', '-vcodec', 'libx264', '-vsync', '2', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
+                ('webm', 'video/webm', ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-s', '320x240']),
+                ('mp4', 'video/mp4', ['-vcodec', 'libx264', '-preset', 'fast', '-vprofile', 'baseline', '-vsync', '2', '-ab', '64k', '-async', '1', '-f', 'mp4', '-s', '320x240']),
+                #('mov', 'video/quicktime', ['-s', '320x240']),
+            )
+            for x in params:
+                ext, mimetype, param = x
+                new_video = create_videoinstance(c.file.path, param, ext = ext)
+                ffp2 = content.filetools2.FFProbe(new_video)
+                info = ffp2.get_videoinfo()
+                print type(info)
+                if not info:
+                    print "EI INFOOOOOOOOOOO"
+                    os.unlink(new_video)
+                    continue
+                print "KAAAKKI", new_video, ffp2.get_videoinfo()
+                vi = Videoinstance(content=c)
+                vi.save()
+                c.video.generate_thumb()
+                print new_video, ext
+                vi.set_file(new_video, ext)
+                ffp2 = content.filetools2.FFProbe(vi.file.path)
+                info = ffp2.get_videoinfo()
+                print "KAAAAAAAKKK", info
+                #os.unlink(new_video)
+                print info
+                vi.set_metadata(info)
+                vi.save()
+                print vi.mimetype, vi.duration, vi.width, vi.height
+        elif ffp.is_audio():
+            params = (
+                ('ogg', 'audio/ogg', ['-acodec', 'libvorbis', '-ab', '64k']),
+                ('mp3', 'audio/mpeg', ['-acodec', 'libmp3lame', '-ab', '64k']),
+            )
+            for x in params:
+                ext, mimetype, param = x
+                new_video = create_audioinstance(c.file.path, param, ext = ext)
+                ai = Audioinstance(content=c)
+                ai.save()
+                ai.set_file(new_video, ext)
+
+                ffp2 = content.filetools2.FFProbe(ai.file.path)
+                info = ffp2.get_audioinfo(ai.file.path)
+                print info
+                ai.set_metadata(info)
+                ai.save()
+                print ai.mimetype, ai.duration
+
+
 
 class Command(BaseCommand):
     # Limit max number of contents to process
@@ -126,4 +198,4 @@ class Command(BaseCommand):
         uid = options.get('uid')
         #verbosity = options.get('verbosity')
         #simulate = options.get('simulate')
-        create_instances(limit=limit, pk=pk, uid=uid)
+        create_instances2(limit=limit, pk=pk, uid=uid)
