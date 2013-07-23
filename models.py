@@ -172,7 +172,13 @@ class Content(models.Model):
     def latlon(self):
         return self.point.coords if self.point else None
 
-    def set_file(self, originalfilename, filecontent, mimetype=None):
+    def set_latlon(self, lat, lon):
+        self.point = Point(lon, lat)
+
+    def set_file(self, originalfilename, filecontent,
+                 mimetype=None,
+                 md5=None,
+                 sha1=None):
         """
         Set Content.file and all it's related fields.
         filecontent may be
@@ -185,24 +191,30 @@ class Content(models.Model):
             filecontent.seek(0)
             filedata = filecontent.read()
         elif len(filecontent) < 1000 and os.path.isfile(filecontent):
+            # FIXME: this shouldn't read all into the memory
+            # TODO: COPY FILE INSTEAD
             f = open(filecontent, "rb")
             filedata = f.read()
             f.close()
         else:
             filedata = filecontent
         self.originalfilename = os.path.basename(originalfilename)
-        self.md5 = hashlib.md5(filedata).hexdigest()
-        self.sha1 = hashlib.sha1(filedata).hexdigest()
+        # TODO: use chunk based function instead
+        self.md5 = md5 if md5 else hashlib.md5(filedata).hexdigest()
+        self.sha1 = sha1 if sha1 else hashlib.sha1(filedata).hexdigest()
         self.save() # Must save here to get self.id
         root, ext = os.path.splitext(originalfilename)
         filename = u"%09d-%s%s" % (self.id, self.uid, ext.lower())
         self.file.save(filename, ContentFile(filedata))
         self.filesize = self.file.size
-        mime = get_mimetype(self.file.path)
-        if mime:
-            self.mimetype = mime
+        if mimetype:
+            self.mimetype = mimetype
         else:
-            self.mimetype = mimetypes.guess_type(originalfilename)[0]
+            mime = get_mimetype(self.file.path)
+            if mime:
+                self.mimetype = mime
+            else:
+                self.mimetype = mimetypes.guess_type(originalfilename)[0]
         # TODO: if file is PDF, create thumbnail:
         # convert -thumbnail x800 file.pdf[0] thumbnail.png
         self.status = "PROCESSED"
