@@ -114,6 +114,13 @@ def get_mimetype(filepath):
     `file` command found in most unix/linux systems.
     File for windows:
     http://gnuwin32.sourceforge.net/packages/file.htm
+
+    TODO:
+    if ext in VIDEO_EXTENSIONS:
+        try to find video and audio stream with ffprobe
+    elif ext in AUDIO_EXTENSIONS:
+        try to find audio stream with ffprobe
+        if found: return arm -> audio/arm
     """
     return magic.from_file(filepath, mime=True)
 #    raise
@@ -422,7 +429,7 @@ def create_videoinstance(filepath, params = [], outfile = None, ext = 'webm'):
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
     out = p.stdout.read()
-    print out
+    #print "create_videoinstance", outfile, out
     return outfile
 
 
