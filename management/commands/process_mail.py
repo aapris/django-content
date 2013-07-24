@@ -172,7 +172,9 @@ def savefiles(msg, simulate):
         )
         if simulate is False:
             c.set_file(filename, filedata)
-            c.get_type_instance()
+            c.set_fileinfo()
+            c.generate_thumbnail()
+            #c.get_type_instance()
             c.save()
             saved_parts += 1
     return saved_parts
