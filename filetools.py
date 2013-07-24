@@ -383,7 +383,7 @@ def do_video_thumbnail(src, target):
     try:
         # FIXME: this fails to create thumbnail if the seconds value after -ss exeeds clip length
         subprocess.check_call([
-            FFMPEG, '-y', '-ss', '1', '-i', src,
+            FFMPEG, '-v', 'quiet', '-y', '-ss', '1', '-i', src,
             '-vframes', '1', '-f', 'mjpeg', target
             ])
         if os.path.isfile(target):
@@ -425,12 +425,13 @@ def create_videoinstance(filepath, params = [], outfile = None, ext = 'webm'):
     if not params:
         params = ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']
     full_cmd = ffmpeg_cmd + params + [outfile]
-    print ' '.join(full_cmd)
+    cmd_str = ' '.join(full_cmd)
+    #print cmd_str
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
     out = p.stdout.read()
-    #print "create_videoinstance", outfile, out
-    return outfile
+    print "create_videoinstance", outfile, out
+    return outfile, cmd_str
 
 
 def create_audioinstance(filepath, params = [], outfile = None, ext = 'mp3'):
@@ -441,11 +442,13 @@ def create_audioinstance(filepath, params = [], outfile = None, ext = 'mp3'):
     if not params:
         params = ['-acodec', 'libmp3lame', '-ab', '64k']
     full_cmd = ffmpeg_cmd + params + [outfile]
+    cmd_str = ' '.join(full_cmd)
+    #print cmd_str
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
     out = p.stdout.read()
     # print out
-    return outfile
+    return outfile, cmd_str
 
 
 # Not implemented
