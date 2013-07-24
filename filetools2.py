@@ -251,33 +251,32 @@ def get_imageinfo(filepath):
     NOTE: PIL can read EXIF tags including GPS tags also.
     """
     info = {}
-    file = open(filepath, "rb")
-    exif = EXIF.process_file(file, stop_tag="UNDEF", details=True, strict=False, debug=False)
-    file.close()
-    if exif:
-        info['exif'] = exif
-    im = ImagePIL.open(filepath)
-    info['width'], info['height'] = im.size
-    try:
-        exif_data = get_exif_data(im)
-        #print exif_data['GPSInfo']
-        if 'GPSInfo' in exif_data:
-            latlon = get_lat_lon(exif_data)
-            if latlon[0] is not None:
-                info['lat'], info['lon'] = latlon
-        if 'DateTimeOriginal' in exif_data:
-            try:
-                datestring = exif_data.get('DateTimeOriginal', '').strip('\0') # remove possible null bytes
-                info['creation_time'] = parser.parse(datestring)#.replace(tzinfo=timezone.utc)
-            except ValueError, err: # E.g. value is '0000:00:00 00:00:00\x00'
-                pass # TODO: logger.warning(str(err))
-            except TypeError, err: # E.g. value is '4:24:26\x002004:06:25 0'
-                pass # TODO: logger.warning(str(err))
-            except Exception, err:
-                pass # TODO: logger.warning(str(err))
-                #print "WRONG DATE: '"+ datestring + "'"
-    except AttributeError, err: # _getexif does not exist
-        pass
+    with open(filepath, "rb") as f:
+        exif = EXIF.process_file(f, stop_tag="UNDEF", details=True, strict=False, debug=False)
+        if exif:
+            info['exif'] = exif
+        im = ImagePIL.open(filepath)
+        info['width'], info['height'] = im.size
+        try:
+            exif_data = get_exif_data(im)
+            #print exif_data['GPSInfo']
+            if 'GPSInfo' in exif_data:
+                latlon = get_lat_lon(exif_data)
+                if latlon[0] is not None:
+                    info['lat'], info['lon'] = latlon
+            if 'DateTimeOriginal' in exif_data:
+                try:
+                    datestring = exif_data.get('DateTimeOriginal', '').strip('\0') # remove possible null bytes
+                    info['creation_time'] = parser.parse(datestring)#.replace(tzinfo=timezone.utc)
+                except ValueError, err: # E.g. value is '0000:00:00 00:00:00\x00'
+                    pass # TODO: logger.warning(str(err))
+                except TypeError, err: # E.g. value is '4:24:26\x002004:06:25 0'
+                    pass # TODO: logger.warning(str(err))
+                except Exception, err:
+                    pass # TODO: logger.warning(str(err))
+                    #print "WRONG DATE: '"+ datestring + "'"
+        except AttributeError, err: # _getexif does not exist
+            pass
 
     iptc = IPTCInfo(filepath, force=True)
     # TODO: extract more tags from iptc (copyright, author etc)
