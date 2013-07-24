@@ -79,7 +79,7 @@ def create_instances2(limit, pk, uid, redo):
                 #print "KAAAKKI", new_video, ffp2.get_videoinfo()
                 vi = Videoinstance(content=c, command=cmd_str)
                 vi.save()
-                c.video.generate_thumb()
+                #c.video.generate_thumb()
                 #print new_video, ext
                 vi.set_file(new_video, ext)
                 ffp2 = content.filetools2.FFProbe(vi.file.path)
