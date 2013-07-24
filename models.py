@@ -269,8 +269,9 @@ class Content(models.Model):
                 pass
         elif self.mimetype.startswith("video"):
             try:
+                if self.video.thumbnail:
+                    self.video.thumbnail.delete()
                 self.video.generate_thumb()
-                #print "THUMBBII", self.video
                 if self.video.thumbnail:
                     self.preview = self.video.thumbnail
             except Video.DoesNotExist:
