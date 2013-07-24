@@ -20,6 +20,9 @@ import random
 import tempfile
 import StringIO
 
+
+from filetools2 import deprecated
+
 from django.conf import settings
 
 from django.core.files.storage import FileSystemStorage
@@ -34,6 +37,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from content.filetools import get_videoinfo, get_imageinfo, get_mimetype, do_pdf_thumbnail
 from content.filetools import do_video_thumbnail
+import content.filetools2
 
 # Original files are saved in content_storage
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS['CONTENT'])
@@ -169,6 +173,7 @@ class Content(models.Model):
     point = models.PointField(geography=True, blank=True, null=True)
     objects = models.GeoManager()
 
+    # TODO: replace this with property stuff
     def latlon(self):
         return self.point.coords if self.point else None
 
@@ -176,51 +181,118 @@ class Content(models.Model):
         self.point = Point(lon, lat)
 
     def set_file(self, originalfilename, filecontent,
-                 mimetype=None,
-                 md5=None,
-                 sha1=None):
+                 mimetype=None, md5=None, sha1=None):
         """
-        Set Content.file and all it's related fields.
-        filecontent may be
+        Save Content.file and all it's related fields
+        (filename, filesize, mimetype, md5, sha1).
+        'filecontent' may be
         - open file handle (opened in "rb"-mode)
         - existing file name (full path)
         - raw file data
-        NOTE: this reads all file content into memory
         """
-        if isinstance(filecontent, file):
-            filecontent.seek(0)
-            filedata = filecontent.read()
-        elif len(filecontent) < 1000 and os.path.isfile(filecontent):
-            # FIXME: this shouldn't read all into the memory
-            # TODO: COPY FILE INSTEAD
-            f = open(filecontent, "rb")
-            filedata = f.read()
-            f.close()
-        else:
-            filedata = filecontent
         self.originalfilename = os.path.basename(originalfilename)
-        # TODO: use chunk based function instead
-        self.md5 = md5 if md5 else hashlib.md5(filedata).hexdigest()
-        self.sha1 = sha1 if sha1 else hashlib.sha1(filedata).hexdigest()
         self.save() # Must save here to get self.id
         root, ext = os.path.splitext(originalfilename)
         filename = u"%09d-%s%s" % (self.id, self.uid, ext.lower())
-        self.file.save(filename, ContentFile(filedata))
+        if isinstance(filecontent, file): # Is open file
+            #filecontent.seek(0)
+            self.file.save(filename, File(filecontent))
+        elif len(filecontent) < 1000 and os.path.isfile(filecontent):
+            # Is existing file in file system
+            with open(filecontent, "rb") as f:
+                self.file.save(filename, File(f))
+        else: # Is just something in the memory
+            self.file.save(filename, ContentFile(filecontent))
         self.filesize = self.file.size
+        if md5 is None or sha1 is None:
+            self.md5, self.sha1 = content.filetools2.hashfile(self.file.path)
         if mimetype:
             self.mimetype = mimetype
         else:
-            mime = get_mimetype(self.file.path)
+            info = content.filetools2.fileinfo(self.file.path)
+            mime = info['mimetype']
             if mime:
                 self.mimetype = mime
             else:
                 self.mimetype = mimetypes.guess_type(originalfilename)[0]
-        # TODO: if file is PDF, create thumbnail:
-        # convert -thumbnail x800 file.pdf[0] thumbnail.png
         self.status = "PROCESSED"
         self.save()
 
+    # NEW! This will replace get_type_instance eventually
+    def set_fileinfo(self, mime=None):
+        """
+        Creates (or updates if it already exists) Content.video/audio/image.
+        Saves width, height, duration, bitrate where appropriate.
+        """
+        if mime is None:
+            mime = self.mimetype
+        obj = None
+        if mime.startswith("image"):
+            info = content.filetools2.get_imageinfo(self.file.path)
+            try:
+                obj = self.image
+            except Image.DoesNotExist:
+                obj = Image(content=self)
+        elif mime.startswith("video"):
+            ffp = content.filetools2.FFProbe(self.file.path)
+            info = ffp.get_videoinfo()
+            try:
+                obj = self.video
+            except Video.DoesNotExist:
+                obj = Video(content=self)
+        elif mime.startswith("audio"):
+            ffp = content.filetools2.FFProbe(self.file.path)
+            info = ffp.get_audioinfo()
+            try:
+                obj = self.audio
+            except Audio.DoesNotExist:
+                obj = Audio(content=self)
+        if obj:
+            obj.set_metadata(info)
+            obj.save() # Save new instance to the database
+            return obj
 
+    def generate_thumbnail(self):
+        """
+        Generates the file to preview field for Videos, Images and PDFs.
+
+        """
+        # TODO: create generic thumbnail functions for video, image and pdf
+        if self.mimetype.startswith("image"):
+            try:
+
+                im = ImagePIL.open(self.file.path)
+                self.image.generate_thumb(im, self.image.thumbnail, THUMBNAIL_PARAMETERS)
+                if self.image.thumbnail:
+                    self.preview = self.image.thumbnail
+            except Image.DoesNotExist:
+                pass
+        elif self.mimetype.startswith("video"):
+            try:
+                self.video.generate_thumb()
+                #print "THUMBBII", self.video
+                if self.video.thumbnail:
+                    self.preview = self.video.thumbnail
+            except Video.DoesNotExist:
+                pass
+        elif self.mimetype.startswith("application/pdf"):
+            tmp_file, tmp_name = tempfile.mkstemp()
+            tmp_name += '.png'
+            #print tmp_name
+            if do_pdf_thumbnail(self.file.path, tmp_name):
+                postfix = "%s-%s-%sx%s" % (THUMBNAIL_PARAMETERS)
+                filename = u"%09d-%s-%s.png" % (self.id, self.uid, postfix)
+                if os.path.isfile(tmp_name):
+                    with open(tmp_name, "rb") as f:
+                        self.preview.save(filename, File(f))
+                    self.save()
+                    os.unlink(tmp_name)
+        else:
+            return None
+
+
+    # TODO REMOVE
+    @deprecated
     def get_type_instance(self):
         """
         Return related Image, Video etc. object.
@@ -245,6 +317,13 @@ class Content(models.Model):
                 if video.thumbnail:
                     self.preview = video.thumbnail
                 return video
+        elif self.mimetype.startswith("audio"):
+            try:
+                return self.audio
+            except Audio.DoesNotExist:
+                audio = Audio(content=self)
+                audio.save() # Save new instance to the database
+                return audio
         elif self.mimetype.startswith("application/pdf"):
             tmp_file, tmp_name = tempfile.mkstemp()
             tmp_name += '.png'
@@ -254,11 +333,9 @@ class Content(models.Model):
                 filename = u"%09d-%s-%s.png" % (self.id, self.uid, postfix)
                 if os.path.isfile(tmp_name):
                     with open(tmp_name, "rb") as f:
-                        #self.thumbnail.save(filename, ContentFile(f.read()))
                         self.preview.save(filename, File(f))
                     self.save()
                     os.unlink(tmp_name)
-
         else:
             return None
 
@@ -325,14 +402,21 @@ class Image(models.Model):
         else:
             return u'vertical'
 
+    def set_metadata(self, data):
+        self.width = data.get('width')
+        self.height = data.get('height')
+
+
     def __unicode__(self):
         return u"Image: %s (%dx%dpx)" % (
                  self.content.originalfilename,
                  self.width, self.height)
 
     def generate_thumb(self, image, thumbfield, t):
+        # TODO: move the general part outside of the model
+        # TODO: do thumbnail out side of save() !
         """
-        TODO: move the general part outside of the model
+        Generate thumbnail from open Image instance and save it into thumb field
         """
         if thumbfield:
             thumbfield.delete() # Delete possible previous version
@@ -352,7 +436,6 @@ class Image(models.Model):
             im = im.transpose(ImagePIL.ROTATE_90)
         im.thumbnail(size, ImagePIL.ANTIALIAS)
         # Save resized image to a temporary file
-        # TODO: use StringIO
         tmp = StringIO.StringIO()
         #tmp = tempfile.NamedTemporaryFile()
         im.save(tmp, "jpeg", quality=t[3])
@@ -413,6 +496,7 @@ class Image(models.Model):
         self.content.status = "PROCESSED"
         self.content.save()
 
+
 class Video(models.Model):
     """
     Dimensions (width, height), duration and bitrate of video media.
@@ -436,18 +520,9 @@ class Video(models.Model):
         self.duration = data.get('duration')
         self.bitrate = data.get('bitrate')
 
-    #def save(self, *args, **kwargs):
-    #    """ Save Video object and in addition:
-    #    - use ffmpeg to extract some information of the video file
-    #    - use ffmpeg to extract and save one thumbnail image from the file
-    #    """
-    #    super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
-    #    self.content.status = "PROCESSED"
-    #    self.content.save()
-
     def generate_thumb(self):
-        if self.content.file is not None and \
-           (self.width is None or self.height is None):
+        if self.content.file is not None: # and \
+           #(self.width is None or self.height is None):
             # Create temporary file for thumbnail
             tmp_file, tmp_name = tempfile.mkstemp()
             if do_video_thumbnail(self.content.file.path, tmp_name):
@@ -459,9 +534,7 @@ class Video(models.Model):
                         self.thumbnail.save(filename, File(f))
                     self.save()
                     os.unlink(tmp_name)
-        #super(Video, self).save(*args, **kwargs) # Call the "real" save() method.
-        #self.content.status = "PROCESSED"
-        #self.content.save()
+
 
 class Videoinstance(models.Model):
     """
@@ -481,6 +554,7 @@ class Videoinstance(models.Model):
     framerate = models.FloatField(blank=True, null=True, editable=False)  # frames / sec
     file = models.FileField(storage=video_storage,
                             upload_to=upload_split_by_1000, editable=False)
+    command = models.CharField(max_length=2000, editable=False)
     created = models.DateTimeField(auto_now_add=True)
 
     def set_file(self, filepath, ext):
@@ -510,6 +584,12 @@ class Audio(models.Model):
     """
     content = models.OneToOneField(Content, primary_key=True)
     duration = models.FloatField(blank=True, null=True) # seconds
+    bitrate = models.FloatField(blank=True, null=True, editable=False)  # bits / sec
+
+    def set_metadata(self, data):
+        self.duration = data.get('duration')
+        self.bitrate = data.get('bitrate')
+
     def __unicode__(self):
         s = u"Audio: %s" % (self.content.originalfilename)
         s += u" (%.2f sec)" % (self.duration if self.duration else -1.0)
@@ -530,6 +610,7 @@ class Audioinstance(models.Model):
     extension = models.CharField(max_length=16, editable=False)
     file = models.FileField(storage=audio_storage,
                             upload_to=upload_split_by_1000, editable=False)
+    command = models.CharField(max_length=2000, editable=False)
     created = models.DateTimeField(auto_now_add=True)
 
     def set_file(self, filepath, ext):
