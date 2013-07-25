@@ -525,7 +525,7 @@ class Video(models.Model):
         if self.content.file is not None: # and \
            #(self.width is None or self.height is None):
             # Create temporary file for thumbnail
-            tmp_file, tmp_name = tempfile.mkstemp()
+            fd, tmp_name = tempfile.mkstemp()
             if do_video_thumbnail(self.content.file.path, tmp_name):
                 postfix = "%s-%s-%sx%s" % (THUMBNAIL_PARAMETERS)
                 filename = u"%09d-%s-%s.jpg" % (self.content.id, self.content.uid, postfix)
@@ -535,6 +535,7 @@ class Video(models.Model):
                         self.thumbnail.save(filename, File(f))
                     self.save()
                     os.unlink(tmp_name)
+            os.close(fd)
 
 
 class Videoinstance(models.Model):
