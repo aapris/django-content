@@ -277,7 +277,7 @@ class Content(models.Model):
             except Video.DoesNotExist:
                 pass
         elif self.mimetype.startswith("application/pdf"):
-            tmp_file, tmp_name = tempfile.mkstemp()
+            fd, tmp_name = tempfile.mkstemp() # Remember to close fd!
             tmp_name += '.png'
             #print tmp_name
             if do_pdf_thumbnail(self.file.path, tmp_name):
@@ -288,6 +288,7 @@ class Content(models.Model):
                         self.preview.save(filename, File(f))
                     self.save()
                     os.unlink(tmp_name)
+            os.close(fd)
         else:
             return None
 
@@ -326,7 +327,7 @@ class Content(models.Model):
                 audio.save() # Save new instance to the database
                 return audio
         elif self.mimetype.startswith("application/pdf"):
-            tmp_file, tmp_name = tempfile.mkstemp()
+            fd, tmp_name = tempfile.mkstemp() # Remember to close fd!
             tmp_name += '.png'
             #print tmp_name
             if do_pdf_thumbnail(self.file.path, tmp_name):
@@ -337,6 +338,7 @@ class Content(models.Model):
                         self.preview.save(filename, File(f))
                     self.save()
                     os.unlink(tmp_name)
+            os.close(fd)
         else:
             return None
 
@@ -525,7 +527,7 @@ class Video(models.Model):
         if self.content.file is not None: # and \
            #(self.width is None or self.height is None):
             # Create temporary file for thumbnail
-            fd, tmp_name = tempfile.mkstemp()
+            fd, tmp_name = tempfile.mkstemp() # Remember to close fd!
             if do_video_thumbnail(self.content.file.path, tmp_name):
                 postfix = "%s-%s-%sx%s" % (THUMBNAIL_PARAMETERS)
                 filename = u"%09d-%s-%s.jpg" % (self.content.id, self.content.uid, postfix)
