@@ -267,7 +267,10 @@ def get_imageinfo(filepath):
             if 'DateTimeOriginal' in exif_data:
                 try:
                     datestring = exif_data.get('DateTimeOriginal', '').strip('\0') # remove possible null bytes
+                    datestring = datestring.replace(':', '-', 2)
                     info['creation_time'] = parser.parse(datestring)#.replace(tzinfo=timezone.utc)
+                    #print "XXXXXXxxxxx", datestring, info['creation_time']
+                    print exif_data.keys()
                 except ValueError, err: # E.g. value is '0000:00:00 00:00:00\x00'
                     pass # TODO: logger.warning(str(err))
                 except TypeError, err: # E.g. value is '4:24:26\x002004:06:25 0'
@@ -327,7 +330,9 @@ def fileinfo(path):
             info = ffp.get_videoinfo()
         elif ffp.is_audio():
             info = ffp.get_audioinfo()
-        #print "KAAKKI", info
+            # Fix mimetype if it starts with video (e.g. video/3gpp)
+            if 'mimetype' not in info and mimetype.startswith('video'):
+                info['mimetype'] = mimetype.replace('video', 'audio')
     else:
         try:
             info = get_imageinfo(path)

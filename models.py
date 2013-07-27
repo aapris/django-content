@@ -406,8 +406,24 @@ class Image(models.Model):
             return u'vertical'
 
     def set_metadata(self, data):
+        info = data
         self.width = data.get('width')
         self.height = data.get('height')
+        if 'title' in info and not self.content.title:
+            self.content.title = info['title']
+        if 'caption' in info and not self.content.caption:
+            self.content.caption = info['caption']
+        if 'keywords' in info and not self.content.keywords:
+            self.content.keywords = info['keywords']
+        try: # Handle exif orientation
+            orientation = info['exif']['Image Orientation'].values[0]
+            if self.rotate == 0:
+                if orientation == 3:   self.rotate = 180
+                elif orientation == 6: self.rotate = 90
+                elif orientation == 8: self.rotate = 270
+        except: # No exif orientation available
+            # TODO: log error
+            pass
 
 
     def __unicode__(self):
@@ -466,32 +482,32 @@ class Image(models.Model):
                 self.content.status = "INVALID"
                 self.content.save()
                 return
-        info = get_imageinfo(self.content.file.path)
+        #info = get_imageinfo(self.content.file.path)
         #print type(info)
         #print info # NOTE: this print may raise exception below with some images !?!
         # Exception Value: %X format: a number is required, not NoneType
         # Set lat and lon if they exist in info and NOT yet in content
-        if 'lat' in info and info['lat'] and self.content.point is None:
-            self.content.point = Point(info['lon'], info['lat'])
-        if 'datetime' in info and self.content.filetime is None:
-            self.content.filetime = info['datetime']
+        #if 'lat' in info and info['lat'] and self.content.point is None:
+        #    self.content.point = Point(info['lon'], info['lat'])
+        #if 'datetime' in info and self.content.filetime is None:
+        #    self.content.filetime = info['datetime']
         #elif 'timestamp' in info and self.content.filetime is None:
         #    self.content.filetime = time.strftime("%Y-%m-%d %H:%M:%S", info['timestamp'])
-        if 'title' in info and not self.content.title:
-            self.content.title = info['title']
-        if 'caption' in info and not self.content.caption:
-            self.content.caption = info['caption']
-        if 'keywords' in info and not self.content.keywords:
-            self.content.keywords = info['keywords']
-        try: # Handle exif orientation
-            orientation = info['exif']['Image Orientation'].values[0]
-            if self.rotate == 0:
-                if orientation == 3:   self.rotate = 180
-                elif orientation == 6: self.rotate = 90
-                elif orientation == 8: self.rotate = 270
-        except: # No exif orientation available
-            # TODO: log error
-            pass
+        # if 'title' in info and not self.content.title:
+        #     self.content.title = info['title']
+        # if 'caption' in info and not self.content.caption:
+        #     self.content.caption = info['caption']
+        # if 'keywords' in info and not self.content.keywords:
+        #     self.content.keywords = info['keywords']
+        # try: # Handle exif orientation
+        #     orientation = info['exif']['Image Orientation'].values[0]
+        #     if self.rotate == 0:
+        #         if orientation == 3:   self.rotate = 180
+        #         elif orientation == 6: self.rotate = 90
+        #         elif orientation == 8: self.rotate = 270
+        # except: # No exif orientation available
+        #     # TODO: log error
+        #     pass
         if im:
             self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
         # TODO: author and other keys, see filetools.get_imageinfo and iptcinfo.py
