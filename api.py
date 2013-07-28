@@ -33,8 +33,10 @@ Thoughts:
 
 import json # import simplejson if using python 2.5
 from django.utils.translation import ugettext as _
-from django.utils.encoding import smart_unicode, force_unicode
-from django.contrib.gis.geos import Point
+from django.utils.timezone import utc
+
+#from django.utils.encoding import smart_unicode, force_unicode
+#from django.contrib.gis.geos import Point
 
 from content.models import *
 from filehandler import handle_uploaded_file
@@ -65,7 +67,15 @@ def content_post(request):
         )
         originalname = str(request.FILES[filefield_name])
         c.set_file(originalname, filename)
-        c.get_type_instance()
+        info = content.filetools2.fileinfo(c.file.path)
+        if 'lat' in info:
+            c.set_latlon(info['lat'], info['lon'])
+        if 'creation_time' in info:
+            c.filetime = info['creation_time'].replace(tzinfo=utc)
+        mime = info['mimetype'] if 'mimetype' in info else None
+        c.set_fileinfo(mime=mime)
+        c.generate_thumbnail()
+        #c.get_type_instance()
         c.save()
         saved_files.append({
                 'uid': c.uid,
