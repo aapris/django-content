@@ -126,7 +126,11 @@ def savefiles(msg, simulate):
         print "User.DoesNotExist !"
         log.warning("User.DoesNotExist: '%s'" % username)
         return False
-    privacy = 'PRIVATE'
+    contentgroup = None
+    if user.contentgroups.count() > 0:
+        contentgroup = user.contentgroups.all()[0]
+    #privacy = 'PRIVATE'
+    privacy = 'RESTRICTED'
     if key.lower() == 'pub':
         privacy = 'PUBLIC'
     elif key.lower() == 'res':
@@ -169,6 +173,7 @@ def savefiles(msg, simulate):
             privacy = privacy,
             caption = subject,
             author = sender_nick,
+            group = contentgroup,
         )
         if simulate is False:
             c.set_file(filename, filedata)
