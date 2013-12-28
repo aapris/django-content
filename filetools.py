@@ -80,7 +80,7 @@ def find_ffmpeg():
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
         out = p.stdout.readlines()
-        print "USING:", out.pop(0)
+        #print "USING:", out.pop(0)
         return FFMPEG
     except OSError, err:
         print str(err) +  ':', FFMPEG
