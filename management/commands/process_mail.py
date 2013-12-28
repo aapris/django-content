@@ -116,14 +116,14 @@ def savefiles(msg, simulate):
     else:
         print "ERROR: No user.authkey found from %s %s" % (tos[0], msg_id)
         return False
-    print "User, key:", username, key
+    #print "User, key:", username, key
     # TODO: replace this with AuthTicket stuff
     #from django.contrib.auth import authenticate
     #user = authenticate(authtoken='qwerty123')
     try:
         user = User.objects.get(username=username.lower())
     except User.DoesNotExist:
-        print "User.DoesNotExist !"
+        print "User.DoesNotExist !", username
         log.warning("User.DoesNotExist: '%s'" % username)
         return False
     contentgroup = None
@@ -176,12 +176,18 @@ def savefiles(msg, simulate):
             group = contentgroup,
         )
         if simulate is False:
+            log.info("Saving file %s" % filename)
             c.set_file(filename, filedata)
+            log.info("set_fileinfo()")
             c.set_fileinfo()
+            log.info("c.generate_thumbnail()")
             c.generate_thumbnail()
             #c.get_type_instance()
             c.save()
             saved_parts += 1
+            log.info("Saving really")
+        else:
+            log.info("Not saving, simulate %s" % simulate)
     return saved_parts
 
 
@@ -190,11 +196,16 @@ def process_mails(limit, simulate):
     if limit > 0:
         mails = mails[:limit]
     for mail in mails:
+        #mail.status = 'PROCESSING'
+        #mail.save()
         path = mail.file.path
         with open(path, 'rt') as f:
             maildata = f.read()
         msg = email.message_from_string(maildata)
+        #print "MOIMOI", simulate
+        log.info("Start saving message parts")
         saved_parts_count = savefiles(msg, simulate)
+        log.info("Message parts saved")
         if saved_parts_count:
             mail.status = 'PROCESSED'
             log.info("Saved %d files" % saved_parts_count)
@@ -203,6 +214,7 @@ def process_mails(limit, simulate):
             log.warning("Saved %d files" % saved_parts_count)
         mail.processed = datetime.datetime.now()
         if simulate == False:
+            #print "seivataan", simulate
             mail.save()
 
 class Command(BaseCommand):
