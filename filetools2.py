@@ -73,7 +73,11 @@ class FFProbe:
         command = self._ffprobe_command(self.path)
         #print ' '.join(command)
         #print os.path.isfile(url)
-        process = subprocess.Popen(command, stdout=subprocess.PIPE)
+        try:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE)
+        except Exception, e:
+            print ' '.join(command)
+            print e
         output, err = process.communicate()
         #print "RAW JSON", output, err
         self.data = json.loads(output)
@@ -323,7 +327,6 @@ def fileinfo(path):
     with open(path, 'rb') as f:
         mimetype = magic.from_buffer(f.read(4096), mime=True)
     #mimetype = magic.from_file(path, mime=True)
-    #print mimetype
     if mimetype not in ['application/xml'] and not mimetype.startswith('image'):
         ffp = FFProbe(path)
         if ffp.is_video():
