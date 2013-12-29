@@ -74,13 +74,28 @@ class FFProbe:
         #print ' '.join(command)
         #print os.path.isfile(url)
         try:
-            process = subprocess.Popen(command, stdout=subprocess.PIPE)
-        except Exception, e:
+            #print ' '.join(command)
+            output = subprocess.check_output(command)
+        except subprocess.CalledProcessError, err: # Probably file not found
+            # TODO: log file and error here.
+            print "Subprocess error:", err
             print ' '.join(command)
-            print e
-        output, err = process.communicate()
+            raise
+        except OSError, err: # Probably executable was not found
+            # TODO: log file and error here.
+            print "OSError:", err
+            print ' '.join(command)
+            raise
+
+        # try:
+        #     process = subprocess.Popen(command, stdout=subprocess.PIPE)
+        # except Exception, e:
+        #     print ' '.join(command)
+        #     print e
+        # output, err = process.communicate()
         #print "RAW JSON", output, err
         self.data = json.loads(output)
+        return True
 
     def _ffprobe_command(self, url):
         return ['ffprobe',
