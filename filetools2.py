@@ -271,7 +271,12 @@ def get_imageinfo(filepath):
     """
     info = {}
     with open(filepath, "rb") as f:
-        exif = EXIF.process_file(f, stop_tag="UNDEF", details=True, strict=False, debug=False)
+        try:
+            exif = EXIF.process_file(f, stop_tag="UNDEF", details=True, strict=False, debug=False)
+        except IndexError, err:
+            # File "content/EXIF.py", line 1680, in process_file
+            # f.seek(offset+thumb_off.values[0])
+            exif = None
         if exif:
             info['exif'] = exif
         im = ImagePIL.open(filepath)
