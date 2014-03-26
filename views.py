@@ -25,8 +25,8 @@ import StringIO
 #import tempfile
 #import PIL
 #from PIL import Image, ImageDraw, ImageFont
-import Image as ImagePIL
-import ImageDraw, ImageFont
+from PIL import Image as ImagePIL
+from PIL import ImageDraw, ImageFont
 import json
 
 from filehandler import handle_uploaded_file

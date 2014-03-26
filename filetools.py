@@ -39,9 +39,9 @@ import subprocess
 import tempfile
 from django.utils import timezone
 
-import Image as ImagePIL
+from PIL import Image as ImagePIL
+from PIL.ExifTags import TAGS, GPSTAGS
 import magic
-from ExifTags import TAGS, GPSTAGS
 import EXIF
 from iptcinfo import IPTCInfo
 import pipeffmpeg

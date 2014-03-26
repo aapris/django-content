@@ -6,9 +6,15 @@ import re
 import subprocess
 import json
 import datetime
-import Image
+#from PIL import Image
 from dateutil import parser
 import magic
+
+from get_lat_lon_exif_pil import get_exif_data, get_lat_lon
+from PIL import Image as ImagePIL
+import EXIF
+from iptcinfo import IPTCInfo
+
 
 import time
 
@@ -239,11 +245,6 @@ def hashfile(path):
             buf = f.read(BLOCKSIZE)
     return (md5.hexdigest(), sha1.hexdigest())
 
-
-from get_lat_lon_exif_pil import get_exif_data, get_lat_lon
-import Image as ImagePIL
-import EXIF
-from iptcinfo import IPTCInfo
 
 def guess_encoding(str):
     """

@@ -14,7 +14,7 @@ about duration, bitrate, dimensions etc.
 import os
 import hashlib
 import mimetypes
-import Image as ImagePIL
+from PIL import Image as ImagePIL
 import string
 import random
 import tempfile

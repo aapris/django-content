@@ -1,6 +1,6 @@
 import os
 import tempfile
-import Image
+from PIL import Image
 
 from django.test import TestCase
 import filetools
