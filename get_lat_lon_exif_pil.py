@@ -2,7 +2,10 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
 def get_exif_data(image):
-    """Returns a dictionary from the exif data of an PIL Image item. Also converts the GPS Tags"""
+    """
+    Returns a dictionary from the exif data of an
+    PIL Image item. Also converts the GPS Tags.
+    """
     exif_data = {}
     try:
         info = image._getexif()
@@ -30,7 +33,10 @@ def _get_if_exist(data, key):
     return None
 	
 def _convert_to_degress(value):
-    """Helper function to convert the GPS coordinates stored in the EXIF to degress in float format"""
+    """
+    Helper function to convert the GPS coordinates stored in
+    the EXIF to degrees in float format.
+    """
     d0 = value[0][0]
     d1 = value[0][1]
     d = float(d0) / float(d1)
@@ -46,11 +52,14 @@ def _convert_to_degress(value):
     return d + (m / 60.0) + (s / 3600.0)
 
 def get_lat_lon(exif_data):
-    """Returns the latitude and longitude, if available, from the provided exif_data (obtained through get_exif_data above)"""
+    """
+    Returns the latitude and longitude, if available,
+    from the provided exif_data (obtained through get_exif_data above)
+    """
     lat = None
     lon = None
 
-    if "GPSInfo" in exif_data:		
+    if "GPSInfo" in exif_data:
         gps_info = exif_data["GPSInfo"]
 
         gps_latitude = _get_if_exist(gps_info, "GPSLatitude")
@@ -75,6 +84,7 @@ def get_lat_lon(exif_data):
 ################
 if __name__ == "__main__":
     import sys
-    image = Image.open(sys.argv[1])#... # load an image through PIL's Image object
+    # load an image through PIL's Image object
+    image = Image.open(sys.argv[1])
     exif_data = get_exif_data(image)
     print get_lat_lon(exif_data)
