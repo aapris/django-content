@@ -32,7 +32,7 @@ Thoughts:
 """
 
 import json # import simplejson if using python 2.5
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext_lazy as _
 from django.utils.timezone import utc
 
 #from django.utils.encoding import smart_unicode, force_unicode
