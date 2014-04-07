@@ -9,7 +9,7 @@ def get_exif_data(image):
     exif_data = {}
     try:
         info = image._getexif()
-    except IOError:
+    except (IOError, IndexError):  # Possibly corrupt EXIF data
         info = None
     if info:
         for tag, value in info.items():
