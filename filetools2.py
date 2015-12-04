@@ -5,6 +5,7 @@ import re
 import subprocess
 import json
 import datetime
+import logging
 import warnings
 import functools
 from dateutil import parser
@@ -14,6 +15,8 @@ from get_lat_lon_exif_pil import get_exif_data, get_lat_lon
 from PIL import Image as ImagePIL
 from iptcinfo import IPTCInfo
 
+logging.getLogger().addHandler(logging.StreamHandler())
+logger = logging.getLogger('content')
 
 def deprecated(func):
     """
@@ -71,14 +74,16 @@ class FFProbe:
         try:
             output = subprocess.check_output(command)
         except subprocess.CalledProcessError as err:  # Probably file not found
-            # TODO: log file and error here.
-            print "Subprocess error:", err
-            print ' '.join(command)
+            msg = 'Subprocess error: "{}". Command: "{}".'.format(
+                err, ' '.join(command))
+            logger.warning(msg)
             raise
         except OSError as err:  # Probably executable was not found
-            # TODO: log file and error here.
-            print "OSError:", err
-            print ' '.join(command)
+            msg = 'OSError error: "{}". ' \
+                  'Probably ffprobe executable not found. ' \
+                  'Command: "{}".'.format(
+                err, ' '.join(command))
+            logger.warn(msg)
             raise
 
         self.data = json.loads(output)
@@ -273,17 +278,20 @@ def get_imageinfo(filepath):
                                                '').strip('\0')
                     datestring = datestring.replace(':', '-', 2)
                     info['creation_time'] = parser.parse(datestring)
-                    #  .replace(tzinfo=timezone.utc)
-                    # print exif_data.keys()
                 except ValueError as err:
                     # E.g. value is '0000:00:00 00:00:00\x00'
-                    pass  # TODO: logger.warning(str(err))
+                    msg = 'ValueError: cannot parse date string "{}" in ' \
+                          'file "{}".'.format(err, filepath)
+                    logger.warning(msg)
                 except TypeError as err:
                     # E.g. value is '4:24:26\x002004:06:25 0'
-                    pass  # TODO: logger.warning(str(err))
+                    msg = 'TypeError: cannot parse date string "{}" in ' \
+                          'file "{}".'.format(err, filepath)
+                    logger.warning(msg)
                 except Exception as err:
-                    pass  # TODO: logger.warning(str(err))
-                    # print "WRONG DATE: '"+ datestring + "'"
+                    msg = 'Unexpected Error: cannot parse date string "{}" ' \
+                          'in file "{}".'.format(err, filepath)
+                    logger.warning(msg)
         except AttributeError, err:  # _getexif does not exist
             pass
 
@@ -329,7 +337,9 @@ def fileinfo(filepath):
     with open(filepath, 'rb') as f:
         mimetype = magic.from_buffer(f.read(4096), mime=True)
     # mimetype = magic.from_file(path, mime=True)
-    if mimetype not in ['application/xml'] and not mimetype.startswith('image'):
+    # Do not ffprobe, if mimetype is some of these:
+    no_ffprobe = ['application/pdf', 'application/xml']
+    if mimetype not in no_ffprobe and not mimetype.startswith('image'):
         ffp = FFProbe(filepath)
         if ffp.is_video():
             info = ffp.get_videoinfo()
@@ -369,16 +379,19 @@ def do_video_thumbnail(src, target):
     try:
         # FIXME: this fails to create thumbnail if the seconds
         # value after -ss exeeds clip length
-        subprocess.check_call([
+        command = [
             'ffmpeg', '-y', '-ss', '1', '-i', src,
             '-vframes', '1', '-f', 'mjpeg', target
-            ])
+        ]
+        subprocess.check_call(command)
         if os.path.isfile(target):
             return True
         else:
             return False
-    except subprocess.CalledProcessError:
-        # TODO: log file and error here.
+    except subprocess.CalledProcessError as err:
+        msg = 'Subprocess error in do_video_thumbnail: "{}". ' \
+              'Command: "{}".'.format(err, ' '.join(command))
+        logger.warning(msg)
         return False
 
 
@@ -390,17 +403,18 @@ def do_pdf_thumbnail(src, target):
     CONVERT = 'convert'
     # convert -flatten  -geometry 1000x1000 foo.pdf[0] thumb.png
     try:
-        cmd = [CONVERT, '-flatten', '-geometry', '1000x1000',
-               src+'[0]', target]
-        # print ' '.join(cmd)
-        subprocess.check_call(cmd)
+        command = [CONVERT, '-flatten', '-geometry', '1000x1000',
+                   src+'[0]', target]
+        subprocess.check_call(command)
         # TODO: check also that target is really non-broken file
         if os.path.isfile(target):
             return True
         else:
             return False
-    except subprocess.CalledProcessError:
-        # TODO: log file and error here.
+    except subprocess.CalledProcessError as err:
+        msg = 'Subprocess error in do_pdf_thumbnail: "{}". ' \
+              'Command: "{}".'.format(err, ' '.join(command))
+        logger.warning(msg)
         return False
 
 
