@@ -165,11 +165,10 @@ class Content(models.Model):
     # license
     # origin, e.g. City museum, John Smith's photo album
     # Links and relations to other content files
-    peers = models.ManyToManyField("self", blank=True, null=True, editable=False)
+    peers = models.ManyToManyField("self", blank=True, editable=False)
     parent = models.ForeignKey("self", blank=True, null=True, editable=False)
     linktype = models.CharField(max_length=500, blank=True)
     "Information of the type of child-parent relation."
-    #point = models.CharField(max_length=500, blank=True, null=True, editable=False)
     point = models.PointField(geography=True, blank=True, null=True)
     objects = models.GeoManager()
 
