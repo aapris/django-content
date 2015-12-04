@@ -10,8 +10,7 @@ import warnings
 import functools
 from dateutil import parser
 import magic
-import EXIF
-from get_lat_lon_exif_pil import get_exif_data, get_lat_lon
+import exifparser
 from PIL import Image as ImagePIL
 from iptcinfo import IPTCInfo
 
@@ -38,9 +37,12 @@ def deprecated(func):
 
 
 class FFProbe:
-    """Wrapper for the ffprobe command"""
+    """
+    Wrapper for the ffprobe command
+    """
 
     data = None
+    ffprobe = 'ffprobe'  # TODO: try to find full path of ffprobe
 
     audio_mimemap = {
         'amr': 'audio/amr',
@@ -90,7 +92,7 @@ class FFProbe:
         return True
 
     def _ffprobe_command(self, url):
-        return ['ffprobe',
+        return [self.ffprobe,
                 '-v', 'quiet',
                 '-print_format', 'json',
                 '-show_streams',
@@ -215,6 +217,9 @@ class FFProbe:
 
 
 def hashfile(filepath):
+    """
+    Return md5 and sha1 hashes of file in hex format
+    """
     blocksize = 65536
     md5 = hashlib.md5()
     sha1 = hashlib.sha1()
@@ -245,81 +250,53 @@ def guess_encoding(str_):
             return "latin-1"
 
 
+def get_mimetype(filepath):
+    """
+    Return mimetype of given file.
+    Use python-magic if it is found, otherwise try
+    `file` command found in most unix/linux systems.
+    File for windows:
+    http://gnuwin32.sourceforge.net/packages/file.htm
+
+    TODO:
+    if ext in VIDEO_EXTENSIONS:
+        try to find video and audio stream with ffprobe
+    elif ext in AUDIO_EXTENSIONS:
+        try to find audio stream with ffprobe
+        if found: return arm -> audio/arm
+    """
+    if isinstance(filepath, str):
+        filepath = filepath.decode('utf-8')
+    return magic.from_file(filepath, mime=True)
+
+
 def get_imageinfo(filepath):
     """
     Return EXIF and IPTC information found from image file in a dictionary.
-    Uses EXIF.py, Pillow and iptcinfo.
-    NOTE: PIL can read EXIF tags including GPS tags also.
     """
     info = {}
-    with open(filepath, "rb") as f:
-        try:
-            exif = EXIF.process_file(f, stop_tag="UNDEF", details=True,
-                                     strict=False, debug=False)
-        except IndexError:
-            # File "content/EXIF.py", line 1680, in process_file
-            # f.seek(offset+thumb_off.values[0])
-            exif = None
-        if exif:
-            info['exif'] = exif
-        im = ImagePIL.open(filepath)
-        info['width'], info['height'] = im.size
-        try:
-            exif_data = get_exif_data(im)
-            # print exif_data['GPSInfo']
-            if 'GPSInfo' in exif_data:
-                latlon = get_lat_lon(exif_data)
-                if latlon[0] is not None:
-                    info['lat'], info['lon'] = latlon
-            if 'DateTimeOriginal' in exif_data:
-                try:
-                    # remove possible null bytes
-                    datestring = exif_data.get('DateTimeOriginal',
-                                               '').strip('\0')
-                    datestring = datestring.replace(':', '-', 2)
-                    info['creation_time'] = parser.parse(datestring)
-                except ValueError as err:
-                    # E.g. value is '0000:00:00 00:00:00\x00'
-                    msg = 'ValueError: cannot parse date string "{}" in ' \
-                          'file "{}".'.format(err, filepath)
-                    logger.warning(msg)
-                except TypeError as err:
-                    # E.g. value is '4:24:26\x002004:06:25 0'
-                    msg = 'TypeError: cannot parse date string "{}" in ' \
-                          'file "{}".'.format(err, filepath)
-                    logger.warning(msg)
-                except Exception as err:
-                    msg = 'Unexpected Error: cannot parse date string "{}" ' \
-                          'in file "{}".'.format(err, filepath)
-                    logger.warning(msg)
-        except AttributeError, err:  # _getexif does not exist
-            pass
-
-    iptc = IPTCInfo(filepath, force=True)
-    # TODO: extract more tags from iptc (copyright, author etc)
-    # iptc2info_map = {
-    #    'caption/abstract': 'caption',
-    #    'object name': 'title',
-    #    'keywords': 'keywords',
-    # }
-    if iptc:
-        info['iptc'] = iptc
+    info['exif'] = exif = exifparser.read_exif(filepath)
+    info.update(exifparser.parse_datetime(exif, 'EXIF DateTimeOriginal'))
+    info['gps'] = gps = exifparser.parse_gps(exif)
+    if 'lat' in gps:  # Backwards compatibility
+        info['lat'], info['lon'] = gps['lat'], gps['lon']
+    info['iptc'] = iptc = IPTCInfo(filepath, force=True)
+    if iptc:  # TODO: this to own function
         if iptc.data['caption/abstract']:
-            # cap = iptc.data['caption/abstract']
-            # info['caption'] = cap.decode(guess_encoding(cap))
             info['caption'] = iptc.data['caption/abstract']
-            # print info['caption'], type(info['caption'])
         if iptc.data['object name']:
             info['title'] = iptc.data['object name']
         if iptc.data['keywords']:
             kw_str = ','.join(iptc.data['keywords'])
-            # info['keywords'] = kw_str.decode(guess_encoding(kw_str))
             info['keywords'] = kw_str
             info['tags'] = iptc.data['keywords']
-            # print info['keywords'], type(info['keywords'])
         for key in info:  # Convert all str values to unicode
             if isinstance(info[key], str):
                 info[key] = unicode(info[key], guess_encoding(info[key]))
+    with open(str(filepath), 'rb') as f:
+        im = ImagePIL.open(f)
+        info['width'], info['height'] = im.size
+        del im
     return info
 
 
@@ -362,7 +339,39 @@ def fileinfo(filepath):
     return info
 
 
-def do_video_thumbnail(src, target):
+import tempfile
+
+def create_videoinstance(filepath, params=[], outfile=None, ext='webm'):
+    # ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
+    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    if outfile is None:
+        outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
+    if not params:
+        params = ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']
+    full_cmd = ffmpeg_cmd + params + [outfile]
+    cmd_str = ' '.join(full_cmd)
+    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    out = p.stdout.read()
+    return outfile, cmd_str
+
+
+def create_audioinstance(filepath, params=[], outfile=None, ext='mp3'):
+    # ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
+    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+    if outfile is None:
+        outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
+    if not params:
+        params = ['-acodec', 'libmp3lame', '-ab', '64k']
+    full_cmd = ffmpeg_cmd + params + [outfile]
+    cmd_str = ' '.join(full_cmd)
+    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    out = p.stdout.read()
+    return outfile, cmd_str
+
+
+def do_video_thumbnail(src, target, sec=1.0):
     """
     Create a thumbnail from video file 'src' and save it to 'target'.
     Return True if subprocess was called with error code 0.
@@ -380,11 +389,11 @@ def do_video_thumbnail(src, target):
         # FIXME: this fails to create thumbnail if the seconds
         # value after -ss exeeds clip length
         command = [
-            'ffmpeg', '-y', '-ss', '1', '-i', src,
+            'ffmpeg', '-y', '-ss', str(sec), '-i', src,
             '-vframes', '1', '-f', 'mjpeg', target
         ]
         subprocess.check_call(command)
-        if os.path.isfile(target):
+        if os.path.isfile(target):  # TODO: check that size > 0 ?
             return True
         else:
             return False
@@ -416,6 +425,32 @@ def do_pdf_thumbnail(src, target):
               'Command: "{}".'.format(err, ' '.join(command))
         logger.warning(msg)
         return False
+
+
+def create_thumbnail(filepath, t):
+    try:
+        im = ImagePIL.open(filepath)
+    except IOError:  # ImagePIL file is corrupted
+        print "ERROR in image file:", filepath
+        return False
+    if im.mode not in ('L', 'RGB'):
+        im = im.convert('RGB')
+    size = (t[0], t[1])
+    rotatemap = {
+        90: ImagePIL.ROTATE_270,
+       180: ImagePIL.ROTATE_180,
+       270: ImagePIL.ROTATE_90,
+    }
+    if t[4] != 0:
+        im = im.transpose(rotatemap[t[4]])
+    im.thumbnail(size, ImagePIL.ANTIALIAS)
+    # TODO: use imagemagick and convert
+    # Save resized image to a temporary file
+    # NOTE: the size will be increased if original is smaller than size
+    tmp = tempfile.NamedTemporaryFile() # FIXME: use StringIO
+    im.save(tmp, "jpeg", quality=t[3])
+    tmp.seek(0)
+    return tmp
 
 
 if __name__ == '__main__':
