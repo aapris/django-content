@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from django.conf.urls import patterns, include, url
-#from django.conf import settings
-
 import views
 
 urlpatterns = patterns('',
@@ -17,18 +15,4 @@ urlpatterns = patterns('',
     url(r'^original/(?P<uid>[\w]+)/(?P<filename>.+)$', views.original, name='original'),
     url(r'^original/(?P<uid>[\w]+)$', views.original, name='original'),
     url(r'^metadata/(\w+)$', views.metadata, name='metadata'),
-)
-
-
-from content.apitastypie import ContentResource
-from content.apitastypie import UserResource
-from tastypie.api import Api
-
-v1_api = Api(api_name='v1')
-v1_api.register(ContentResource())
-v1_api.register(UserResource())
-
-urlpatterns += patterns('',
-    url(r'^api/v1/content/upload/?$', views.api_upload, name='api_upload'),
-    (r'^api/', include(v1_api.urls)),
 )
