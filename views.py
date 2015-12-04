@@ -399,8 +399,9 @@ def view(request, uid, width, height, action, ext):
     # If we got here, we should have some kind of Image object.
     # Width and height may be %d if the client uses preview_uri literally
     # (it should replace them with integer).
-    if width == '%d' and height == '%d':
-        size = 320, 240
+    if width in ['%d', '%(width)d'] and height in ['%d', '%(height)d']:
+        #size = 320, 240
+        size = 640, 480
     else:
         size = int(width), int(height)
     # Crop image if requested so

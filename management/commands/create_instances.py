@@ -22,9 +22,7 @@ from content.models import Content, Mail
 
 # FIXME: handle mailed files elsewhere, e.g. in comeup app
 
-from content.filetools import get_ffmpeg_videoinfo, get_videoinfo, get_audioinfo
-from content.filetools import create_videoinstance, create_audioinstance
-from content.filetools import is_audio, is_video
+from content.filetools2 import create_videoinstance, create_audioinstance
 import content.filetools2
 
 from content.models import Videoinstance, Audioinstance

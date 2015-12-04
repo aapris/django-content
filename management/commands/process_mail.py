@@ -19,7 +19,7 @@ import logging
 log = logging.getLogger('fetch_mail')
 
 from content.models import Content, Mail
-
+from albumit.models import Metadata
 # FIXME: handle mailed files elsewhere, e.g. in comeup app
 
 # Helpers
@@ -68,10 +68,12 @@ def get_recipient(msg):
         tos = msg.get_all(to_headers.pop(0), [])
     return tos
 
+
 def handle_part(part):
     filename = part.get_filename()
     filedata = part.get_payload(decode=1)
     return filename, filedata
+
 
 # not in use yet
 def get_all_data(msg):
@@ -81,6 +83,7 @@ def get_all_data(msg):
     all['msg_id'] = msg.get('message-id', '')
     all['froms'] = msg.get_all('from', [])
     return all
+
 
 def savefiles(msg, simulate):
     """
@@ -127,8 +130,17 @@ def savefiles(msg, simulate):
         log.warning("User.DoesNotExist: '%s'" % username)
         return False
     contentgroup = None
-    if user.contentgroups.count() > 0:
-        contentgroup = user.contentgroups.all()[0]
+    if user.albumitgroups.count() > 0:
+        contentgroup = user.albumitgroups.all()[0]
+    sourceorg = None
+    if user.sourceorgs.count() > 0:
+        sourceorg = user.sourceorgs.all()[0]
+    photographer_name = sender_nick
+    photographer = None
+    if sourceorg and sourceorg.photographers.count() > 0:
+        p = sourceorg.photographers.all()[0]
+        photographer_name = u'{} {}'.format(p.firstname, p.lastname)
+        photographer = p
     #privacy = 'PRIVATE'
     privacy = 'RESTRICTED'
     if key.lower() == 'pub':
@@ -163,17 +175,20 @@ def savefiles(msg, simulate):
         if filedata is None or len(filedata) == 0:
             log_msg = "Not saving '%s', filename '%s', file has no data" % (part_content_type, filename)
             log.warning(log_msg)
-            if simulate: print log_msg # Print lots of debug stuff
+            if simulate:
+                print log_msg # Print lots of debug stuff
             continue
         log_msg = u'Saving: %s (%s)' % (filename, part_content_type)
         log.info(log_msg)
-        if simulate: print log_msg # Print lots of debug stuff
+        if simulate:
+            print log_msg # Print lots of debug stuff
         c = Content(
-            user = user,
-            privacy = privacy,
-            caption = subject,
-            author = sender_nick,
-            group = contentgroup,
+            user=user,
+            privacy=privacy,
+            caption=subject,
+            author=photographer_name,
+            #author=sender_nick,
+            #group=contentgroup,
         )
         if simulate is False:
             log.info("Saving file %s" % filename)
@@ -182,12 +197,21 @@ def savefiles(msg, simulate):
             c.set_fileinfo()
             log.info("c.generate_thumbnail()")
             c.generate_thumbnail()
-            #c.get_type_instance()
             c.save()
             saved_parts += 1
             log.info("Saving really")
         else:
             log.info("Not saving, simulate %s" % simulate)
+        m = Metadata(
+            content=c,
+            sourceorg=sourceorg,
+            photographer=photographer,
+            group=contentgroup,
+            caption=subject,
+            author=photographer_name,
+            geometry=c.point,
+        )
+        m.save()
     return saved_parts
 
 
