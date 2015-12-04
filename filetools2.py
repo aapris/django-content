@@ -37,6 +37,8 @@ def deprecated(func):
 class FFProbe:
     """Wrapper for the ffprobe command"""
 
+    data = None
+
     audio_mimemap = {
         'amr': 'audio/amr',
         '3gp': 'audio/3gpp',
@@ -53,7 +55,6 @@ class FFProbe:
     def __init__(self, path):
         self.path = path
         self.get_streams_dict()
-        self.data = None
 
     def get_streams_dict(self):
         """
@@ -208,11 +209,11 @@ class FFProbe:
         return info
 
 
-def hashfile(path):
+def hashfile(filepath):
     blocksize = 65536
     md5 = hashlib.md5()
     sha1 = hashlib.sha1()
-    with open(path, 'rb') as f:
+    with open(filepath, 'rb') as f:
         buf = f.read(blocksize)
         while len(buf) > 0:
             md5.update(buf)
@@ -314,7 +315,7 @@ def get_imageinfo(filepath):
     return info
 
 
-def fileinfo(path):
+def fileinfo(filepath):
     """
     Return some information from file found in 'path'.
     filemtime, filesize and mimetypa are always present.
@@ -325,11 +326,11 @@ def fileinfo(path):
     info = {}
     # Get quickly mimetype first, because we don't want to run FFProbe
     # for e.g. xml files
-    with open(path, 'rb') as f:
+    with open(filepath, 'rb') as f:
         mimetype = magic.from_buffer(f.read(4096), mime=True)
     # mimetype = magic.from_file(path, mime=True)
     if mimetype not in ['application/xml'] and not mimetype.startswith('image'):
-        ffp = FFProbe(path)
+        ffp = FFProbe(filepath)
         if ffp.is_video():
             info = ffp.get_videoinfo()
         elif ffp.is_audio():
@@ -339,13 +340,13 @@ def fileinfo(path):
                 info['mimetype'] = mimetype.replace('video', 'audio')
     else:
         try:
-            info = get_imageinfo(path)
+            info = get_imageinfo(filepath)
             if 'exif' in info:
                 del info['exif']
         except IOError:  # is not image
             pass
-    info['filemtime'] = datetime.datetime.fromtimestamp(os.path.getmtime(path))
-    info['filesize'] = os.path.getsize(path)
+    info['filemtime'] = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
+    info['filesize'] = os.path.getsize(filepath)
     if 'mimetype' not in info:  # FFProbe() did not detect file
         info['mimetype'] = mimetype
     return info
@@ -358,10 +359,12 @@ def do_video_thumbnail(src, target):
     TODO: make -ss configurable, now it is hardcoded 1 seconds.
 
     subprocess.check_call(
-    ['ffmpeg', '-ss', '1', '-i', 'test_content/05012009044.mp4', '-vframes', '1', '-f', 'mjpeg', '-s', '320x240', 'test-1.jpg'])
-    ffmpeg -ss 1 -i test_content/05012009044.mp4 -vframes 1 -f mjpeg -s 320x240 test-1.jpg
-    ffmpeg -ss 2 -i test_content/05012009044.mp4 -vframes 1 -f mjpeg -s 320x240 test-2.jpg
-    ffmpeg -ss 3 -i test_content/05012009044.mp4 -vframes 1 -f mjpeg -s 320x240 test-3.jpg
+      ['ffmpeg', '-ss', '1', '-i', 'test_content/05012009044.mp4',
+       '-vframes', '1', '-f', 'mjpeg', '-s', '320x240', 'test-1.jpg'])
+
+    ffmpeg -ss 1 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-1.jpg
+    ffmpeg -ss 2 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-2.jpg
+    ffmpeg -ss 3 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-3.jpg
     """
     try:
         # FIXME: this fails to create thumbnail if the seconds
