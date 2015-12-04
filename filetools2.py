@@ -1,36 +1,26 @@
 # -*- coding: utf-8 -*-
 import hashlib
-
 import os
 import re
 import subprocess
 import json
 import datetime
-#from PIL import Image
+import warnings
+import functools
 from dateutil import parser
 import magic
-
+import EXIF
 from get_lat_lon_exif_pil import get_exif_data, get_lat_lon
 from PIL import Image as ImagePIL
-import EXIF
 from iptcinfo import IPTCInfo
 
 
-import time
-
-"""
-
-for i in ~/s2plus/sdcard/DCIM/Camera/20130630_161432_Perhepuistontie.jpg ~/s2plus/sdcard/Sounds/Puhe\ 001_Jousimiehentie_07072013.m4a ~/s2plus/sdcard/DCIM/Camera/20130721_191930_Sorsavuorenkatu.mp4 /Users/arista/s2plus/sdcard/Sounds/Audio\ 001.amr; do echo $i; python ~/Documents/workspace/Djangos/MestaDB/mestadb/content/filetools2.py "$i";done
-
-
-"""
-
-import warnings
-import functools
 def deprecated(func):
-    '''This is a decorator which can be used to mark functions
+    """
+    This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
-    when the function is used.'''
+    when the function is used.
+    """
 
     @functools.wraps(func)
     def new_func(*args, **kwargs):
@@ -44,7 +34,6 @@ def deprecated(func):
     return new_func
 
 
-
 class FFProbe:
     """Wrapper for the ffprobe command"""
 
@@ -52,7 +41,7 @@ class FFProbe:
         'amr': 'audio/amr',
         '3gp': 'audio/3gpp',
         '3ga': 'audio/3gpp',
-        'm4a': 'audio/mp4a-latm', #'audio/mp4',
+        'm4a': 'audio/mp4a-latm',  # 'audio/mp4',
         'ogg': 'audio/ogg',
         'mp3': 'audio/mpeg',
     }
@@ -64,6 +53,7 @@ class FFProbe:
     def __init__(self, path):
         self.path = path
         self.get_streams_dict()
+        self.data = None
 
     def get_streams_dict(self):
         """
@@ -77,29 +67,22 @@ class FFProbe:
         """
 
         command = self._ffprobe_command(self.path)
-        #print ' '.join(command)
-        #print os.path.isfile(url)
+        # print ' '.join(command)
+        # print os.path.isfile(url)
         try:
-            #print ' '.join(command)
+            # print ' '.join(command)
             output = subprocess.check_output(command)
-        except subprocess.CalledProcessError, err: # Probably file not found
+        except subprocess.CalledProcessError, err:  # Probably file not found
             # TODO: log file and error here.
             print "Subprocess error:", err
             print ' '.join(command)
             raise
-        except OSError, err: # Probably executable was not found
+        except OSError, err:  # Probably executable was not found
             # TODO: log file and error here.
             print "OSError:", err
             print ' '.join(command)
             raise
 
-        # try:
-        #     process = subprocess.Popen(command, stdout=subprocess.PIPE)
-        # except Exception, e:
-        #     print ' '.join(command)
-        #     print e
-        # output, err = process.communicate()
-        #print "RAW JSON", output, err
         self.data = json.loads(output)
         return True
 
@@ -144,7 +127,7 @@ class FFProbe:
         for streamInfo in self.data['streams']:
             # Check if the codec is a video
             codecType = streamInfo['codec_type']
-            #print codecType, streamInfo
+            # print codecType, streamInfo
             if codecType == 'audio':
                 return True
         # If we can't find any audio streams, the file is not a audio
@@ -167,7 +150,7 @@ class FFProbe:
             return False
 
     def get_latlon(self, info):
-        #"+60.1878+025.0339/"
+        # "+60.1878+025.0339/"
         try:
             if 'location' in self.data['format']['tags']:
                 loc = self.data['format']['tags']['location']
@@ -177,7 +160,7 @@ class FFProbe:
                     info['lon'] = float(m.group('lon'))
         except KeyError, e:
             pass
-            #print "Does not exist", e
+            # print "Does not exist", e
 
     def get_creation_time(self, info):
         try:
@@ -186,7 +169,7 @@ class FFProbe:
                 info['creation_time'] = parser.parse(ts)
         except KeyError, e:
             pass
-            #print "Does not exist", e
+            # print "Does not exist", e
 
     def get_duration(self, stream, info):
         if 'duration' in stream:
@@ -227,7 +210,7 @@ class FFProbe:
         if ext in self.audio_mimemap.keys():
             info['mimetype'] = self.audio_mimemap[ext]
 
-        #print ext, info
+        # print ext, info
         self.get_latlon(info)
         self.get_creation_time(info)
         return info
@@ -284,51 +267,51 @@ def get_imageinfo(filepath):
         info['width'], info['height'] = im.size
         try:
             exif_data = get_exif_data(im)
-            #print exif_data['GPSInfo']
+            # print exif_data['GPSInfo']
             if 'GPSInfo' in exif_data:
                 latlon = get_lat_lon(exif_data)
                 if latlon[0] is not None:
                     info['lat'], info['lon'] = latlon
             if 'DateTimeOriginal' in exif_data:
                 try:
-                    datestring = exif_data.get('DateTimeOriginal', '').strip('\0') # remove possible null bytes
+                    datestring = exif_data.get('DateTimeOriginal', '').strip('\0')  # remove possible null bytes
                     datestring = datestring.replace(':', '-', 2)
-                    info['creation_time'] = parser.parse(datestring)#.replace(tzinfo=timezone.utc)
-                    #print "XXXXXXxxxxx", datestring, info['creation_time']
+                    info['creation_time'] = parser.parse(datestring)  #  .replace(tzinfo=timezone.utc)
+                    # print "XXXXXXxxxxx", datestring, info['creation_time']
                     print exif_data.keys()
-                except ValueError, err: # E.g. value is '0000:00:00 00:00:00\x00'
-                    pass # TODO: logger.warning(str(err))
-                except TypeError, err: # E.g. value is '4:24:26\x002004:06:25 0'
-                    pass # TODO: logger.warning(str(err))
+                except ValueError, err:  # E.g. value is '0000:00:00 00:00:00\x00'
+                    pass  # TODO: logger.warning(str(err))
+                except TypeError, err:  # E.g. value is '4:24:26\x002004:06:25 0'
+                    pass  # TODO: logger.warning(str(err))
                 except Exception, err:
-                    pass # TODO: logger.warning(str(err))
-                    #print "WRONG DATE: '"+ datestring + "'"
-        except AttributeError, err: # _getexif does not exist
+                    pass  # TODO: logger.warning(str(err))
+                    # print "WRONG DATE: '"+ datestring + "'"
+        except AttributeError, err:  # _getexif does not exist
             pass
 
     iptc = IPTCInfo(filepath, force=True)
     # TODO: extract more tags from iptc (copyright, author etc)
-    #iptc2info_map = {
+    # iptc2info_map = {
     #    'caption/abstract': 'caption',
     #    'object name': 'title',
     #    'keywords': 'keywords',
-    #}
+    # }
     if iptc:
         info['iptc'] = iptc
         if iptc.data['caption/abstract']:
-            #cap = iptc.data['caption/abstract']
-            #info['caption'] = cap.decode(guess_encoding(cap))
+            # cap = iptc.data['caption/abstract']
+            # info['caption'] = cap.decode(guess_encoding(cap))
             info['caption'] = iptc.data['caption/abstract']
-            #print info['caption'], type(info['caption'])
+            # print info['caption'], type(info['caption'])
         if iptc.data['object name']:
             info['title'] = iptc.data['object name']
         if iptc.data['keywords']:
             kw_str = ','.join(iptc.data['keywords'])
-            #info['keywords'] = kw_str.decode(guess_encoding(kw_str))
+            # info['keywords'] = kw_str.decode(guess_encoding(kw_str))
             info['keywords'] = kw_str
             info['tags'] = iptc.data['keywords']
-            #print info['keywords'], type(info['keywords'])
-        for key in info: # Convert all str values to unicode
+            # print info['keywords'], type(info['keywords'])
+        for key in info:  # Convert all str values to unicode
             if isinstance(info[key], str):
                 info[key] = unicode(info[key], guess_encoding(info[key]))
     return info
@@ -347,7 +330,7 @@ def fileinfo(path):
     # for e.g. xml files
     with open(path, 'rb') as f:
         mimetype = magic.from_buffer(f.read(4096), mime=True)
-    #mimetype = magic.from_file(path, mime=True)
+    # mimetype = magic.from_file(path, mime=True)
     if mimetype not in ['application/xml'] and not mimetype.startswith('image'):
         ffp = FFProbe(path)
         if ffp.is_video():
@@ -362,11 +345,11 @@ def fileinfo(path):
             info = get_imageinfo(path)
             if 'exif' in info:
                 del info['exif']
-        except IOError: # is not image
+        except IOError:  # is not image
             pass
     info['filemtime'] = datetime.datetime.fromtimestamp(os.path.getmtime(path))
     info['filesize'] = os.path.getsize(path)
-    if 'mimetype' not in info: # FFProbe() did not detect file
+    if 'mimetype' not in info:  # FFProbe() did not detect file
         info['mimetype'] = mimetype
     return info
 
@@ -424,7 +407,7 @@ if __name__ == '__main__':
     import sys
     for path in sys.argv[1:]:
         print path, fileinfo(path)
-    #ffp = FFProbe(path)
-    #print path, ffp.is_video(), ffp.is_audio()
-    #if ffp.is_video(): print ffp.get_videoinfo()
-    #if ffp.is_audio(): print ffp.get_audioinfo()
+    # ffp = FFProbe(path)
+    # print path, ffp.is_video(), ffp.is_audio()
+    # if ffp.is_video(): print ffp.get_videoinfo()
+    # if ffp.is_audio(): print ffp.get_audioinfo()
