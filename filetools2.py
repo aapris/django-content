@@ -67,17 +67,14 @@ class FFProbe:
         """
 
         command = self._ffprobe_command(self.path)
-        # print ' '.join(command)
-        # print os.path.isfile(url)
         try:
-            # print ' '.join(command)
             output = subprocess.check_output(command)
-        except subprocess.CalledProcessError, err:  # Probably file not found
+        except subprocess.CalledProcessError as err:  # Probably file not found
             # TODO: log file and error here.
             print "Subprocess error:", err
             print ' '.join(command)
             raise
-        except OSError, err:  # Probably executable was not found
+        except OSError as err:  # Probably executable was not found
             # TODO: log file and error here.
             print "OSError:", err
             print ' '.join(command)
@@ -105,8 +102,7 @@ class FFProbe:
         # Check each stream, looking for a video
         for streamInfo in self.data['streams']:
             # Check if the codec is a video
-            codecType = streamInfo['codec_type']
-            if codecType == 'video':
+            if streamInfo['codec_type'] == 'video':
                 # Images and other binaries are sometimes parsed as videos,
                 # so also check that there's at least 1 second of video
                 duration = streamInfo.get('duration', 0.0)
@@ -126,9 +122,7 @@ class FFProbe:
         # Check each stream, looking for a video
         for streamInfo in self.data['streams']:
             # Check if the codec is a video
-            codecType = streamInfo['codec_type']
-            # print codecType, streamInfo
-            if codecType == 'audio':
+            if streamInfo['codec_type'] == 'audio':
                 return True
         # If we can't find any audio streams, the file is not a audio
         return False
@@ -143,8 +137,8 @@ class FFProbe:
         """
         Return True if file has an audio stream, but not video stream.
         """
-        if (self.has_audio_stream() is True
-            and self.has_video_stream() is False):
+        if (self.has_audio_stream() is True and
+                self.has_video_stream() is False):
             return True
         else:
             return False
@@ -158,18 +152,16 @@ class FFProbe:
                 if m:
                     info['lat'] = float(m.group('lat'))
                     info['lon'] = float(m.group('lon'))
-        except KeyError, e:
+        except KeyError:
             pass
-            # print "Does not exist", e
 
     def get_creation_time(self, info):
         try:
             if 'creation_time' in self.data['format']['tags']:
                 ts = self.data['format']['tags']['creation_time']
                 info['creation_time'] = parser.parse(ts)
-        except KeyError, e:
+        except KeyError:
             pass
-            # print "Does not exist", e
 
     def get_duration(self, stream, info):
         if 'duration' in stream:
@@ -217,19 +209,19 @@ class FFProbe:
 
 
 def hashfile(path):
-    BLOCKSIZE = 65536
+    blocksize = 65536
     md5 = hashlib.md5()
     sha1 = hashlib.sha1()
     with open(path, 'rb') as f:
-        buf = f.read(BLOCKSIZE)
+        buf = f.read(blocksize)
         while len(buf) > 0:
             md5.update(buf)
             sha1.update(buf)
-            buf = f.read(BLOCKSIZE)
-    return (md5.hexdigest(), sha1.hexdigest())
+            buf = f.read(blocksize)
+    return md5.hexdigest(), sha1.hexdigest()
 
 
-def guess_encoding(str):
+def guess_encoding(str_):
     """
     Try to guess is the str utf8, mac-roman or latin-1 encoded.
     http://en.wikipedia.org/wiki/Mac_OS_Roman
@@ -238,10 +230,10 @@ def guess_encoding(str):
     http://stackoverflow.com/questions/4198804/how-to-reliably-guess-the-encoding-between-macroman-cp1252-latin1-utf-8-and-a
     """
     try:
-        unicode(str, 'utf8')
+        unicode(str_, 'utf8')
         return "utf8"
     except UnicodeDecodeError:
-        if re.compile(r'[\x00–\x1f\x7f-\x9f]').findall(str):
+        if re.compile(r'[\x00–\x1f\x7f-\x9f]').findall(str_):
             return "mac-roman"
         else:
             return "latin-1"
@@ -250,14 +242,15 @@ def guess_encoding(str):
 def get_imageinfo(filepath):
     """
     Return EXIF and IPTC information found from image file in a dictionary.
-    Uses EXIF.py, PIL and iptcinfo.
+    Uses EXIF.py, Pillow and iptcinfo.
     NOTE: PIL can read EXIF tags including GPS tags also.
     """
     info = {}
     with open(filepath, "rb") as f:
         try:
-            exif = EXIF.process_file(f, stop_tag="UNDEF", details=True, strict=False, debug=False)
-        except IndexError, err:
+            exif = EXIF.process_file(f, stop_tag="UNDEF", details=True,
+                                     strict=False, debug=False)
+        except IndexError:
             # File "content/EXIF.py", line 1680, in process_file
             # f.seek(offset+thumb_off.values[0])
             exif = None
@@ -274,16 +267,20 @@ def get_imageinfo(filepath):
                     info['lat'], info['lon'] = latlon
             if 'DateTimeOriginal' in exif_data:
                 try:
-                    datestring = exif_data.get('DateTimeOriginal', '').strip('\0')  # remove possible null bytes
+                    # remove possible null bytes
+                    datestring = exif_data.get('DateTimeOriginal',
+                                               '').strip('\0')
                     datestring = datestring.replace(':', '-', 2)
-                    info['creation_time'] = parser.parse(datestring)  #  .replace(tzinfo=timezone.utc)
-                    # print "XXXXXXxxxxx", datestring, info['creation_time']
-                    print exif_data.keys()
-                except ValueError, err:  # E.g. value is '0000:00:00 00:00:00\x00'
+                    info['creation_time'] = parser.parse(datestring)
+                    #  .replace(tzinfo=timezone.utc)
+                    # print exif_data.keys()
+                except ValueError as err:
+                    # E.g. value is '0000:00:00 00:00:00\x00'
                     pass  # TODO: logger.warning(str(err))
-                except TypeError, err:  # E.g. value is '4:24:26\x002004:06:25 0'
+                except TypeError as err:
+                    # E.g. value is '4:24:26\x002004:06:25 0'
                     pass  # TODO: logger.warning(str(err))
-                except Exception, err:
+                except Exception as err:
                     pass  # TODO: logger.warning(str(err))
                     # print "WRONG DATE: '"+ datestring + "'"
         except AttributeError, err:  # _getexif does not exist
@@ -367,7 +364,8 @@ def do_video_thumbnail(src, target):
     ffmpeg -ss 3 -i test_content/05012009044.mp4 -vframes 1 -f mjpeg -s 320x240 test-3.jpg
     """
     try:
-        # FIXME: this fails to create thumbnail if the seconds value after -ss exeeds clip length
+        # FIXME: this fails to create thumbnail if the seconds
+        # value after -ss exeeds clip length
         subprocess.check_call([
             'ffmpeg', '-y', '-ss', '1', '-i', src,
             '-vframes', '1', '-f', 'mjpeg', target
@@ -380,6 +378,7 @@ def do_video_thumbnail(src, target):
         # TODO: log file and error here.
         return False
 
+
 def do_pdf_thumbnail(src, target):
     """
     Create a thumbnail from a PDF file 'src' and save it to 'target'.
@@ -388,8 +387,9 @@ def do_pdf_thumbnail(src, target):
     CONVERT = 'convert'
     # convert -flatten  -geometry 1000x1000 foo.pdf[0] thumb.png
     try:
-        cmd = [CONVERT, '-flatten', '-geometry', '1000x1000', src+'[0]', target]
-        print ' '.join(cmd)
+        cmd = [CONVERT, '-flatten', '-geometry', '1000x1000',
+               src+'[0]', target]
+        # print ' '.join(cmd)
         subprocess.check_call(cmd)
         # TODO: check also that target is really non-broken file
         if os.path.isfile(target):
@@ -399,8 +399,6 @@ def do_pdf_thumbnail(src, target):
     except subprocess.CalledProcessError:
         # TODO: log file and error here.
         return False
-
-
 
 
 if __name__ == '__main__':
