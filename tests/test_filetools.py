@@ -3,7 +3,7 @@ import os
 #from PIL import Image
 
 from django.test import TestCase
-import content.filetools2
+import content.filetools
 
 
 TESTCONTENT_DIR = os.path.normpath(os.path.join(
@@ -32,7 +32,7 @@ class FiletoolsTestCase(TestCase):
         for filename in files:
             cnt += 1
             path = os.path.join(testdir, filename)
-            ffp = content.filetools2.FFProbe(path)
+            ffp = content.filetools.FFProbe(path)
             self.assertTrue(ffp.is_audio(), "Error '%s'" % filename)
             self.assertFalse(ffp.is_video(), "Error '%s'" % filename)
             print ffp.get_audioinfo()
@@ -51,7 +51,7 @@ class FiletoolsTestCase(TestCase):
         for filename in files:
             cnt += 1
             path = os.path.join(testdir, filename)
-            ffp = content.filetools2.FFProbe(path)
+            ffp = content.filetools.FFProbe(path)
             self.assertTrue(ffp.is_video(), "Error '%s'" % filename)
             self.assertFalse(ffp.is_audio(), "Error '%s'" % filename)
             print ffp.get_videoinfo()
@@ -70,10 +70,10 @@ class FiletoolsTestCase(TestCase):
         for filename in files:
             cnt += 1
             path = os.path.join(testdir, filename)
-            new_video, cmd_str = content.filetools2.create_videoinstance(path)
-            ffp = content.filetools2.FFProbe(new_video)
+            new_video, cmd_str = content.filetools.create_videoinstance(path)
+            ffp = content.filetools.FFProbe(new_video)
             print new_video, ffp.get_videoinfo()
-            content.filetools2.do_video_thumbnail(new_video, '/tmp/thumb.jpg')
+            content.filetools.do_video_thumbnail(new_video, '/tmp/thumb.jpg')
             os.unlink(new_video)
             #self.assertTrue(ffp.is_video(), "Error '%s'" % filename)
             #self.assertFalse(ffp.is_audio(), "Error '%s'" % filename)

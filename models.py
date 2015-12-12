@@ -20,7 +20,7 @@ import tempfile
 import StringIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
-from filetools2 import deprecated
+from filetools import deprecated
 
 from django.conf import settings
 
@@ -36,9 +36,9 @@ from django.contrib.contenttypes.models import ContentType
 
 from django.utils.translation import ugettext_lazy as _
 
-from content.filetools2 import get_mimetype, do_pdf_thumbnail
-from content.filetools2 import do_video_thumbnail
-import content.filetools2
+from content.filetools import get_mimetype, do_pdf_thumbnail
+from content.filetools import do_video_thumbnail
+import content.filetools
 
 # Original files are saved in content_storage
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS['CONTENT'])
@@ -255,11 +255,11 @@ class Content(models.Model):
         """
         self.save_file(originalfilename, filecontent)
         if md5 is None or sha1 is None:
-            self.md5, self.sha1 = content.filetools2.hashfile(self.file.path)
+            self.md5, self.sha1 = content.filetools.hashfile(self.file.path)
         if mimetype:
             self.mimetype = mimetype
         else:
-            info = content.filetools2.fileinfo(self.file.path)
+            info = content.filetools.fileinfo(self.file.path)
             mime = info['mimetype']
             if mime:
                 self.mimetype = mime
@@ -278,20 +278,20 @@ class Content(models.Model):
             mime = self.mimetype
         obj = None
         if mime.startswith("image"):
-            info = content.filetools2.get_imageinfo(self.file.path)
+            info = content.filetools.get_imageinfo(self.file.path)
             try:
                 obj = self.image
             except Image.DoesNotExist:
                 obj = Image(content=self)
         elif mime.startswith("video"):
-            ffp = content.filetools2.FFProbe(self.file.path)
+            ffp = content.filetools.FFProbe(self.file.path)
             info = ffp.get_videoinfo()
             try:
                 obj = self.video
             except Video.DoesNotExist:
                 obj = Video(content=self)
         elif mime.startswith("audio"):
-            ffp = content.filetools2.FFProbe(self.file.path)
+            ffp = content.filetools.FFProbe(self.file.path)
             info = ffp.get_audioinfo()
             try:
                 obj = self.audio
@@ -304,7 +304,7 @@ class Content(models.Model):
             return obj
 
     def get_fileinfo(self):
-        info = content.filetools2.get_imageinfo(self.file.path)
+        info = content.filetools.get_imageinfo(self.file.path)
         return info
 
     def generate_thumbnail(self):
@@ -594,7 +594,7 @@ class Image(models.Model):
         #     pass
         if im:
             self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
-        # TODO: author and other keys, see filetools2.get_imageinfo
+        # TODO: author and other keys, see filetools.get_imageinfo
         # and iptcinfo.py
         # Call the "real" save() method
         super(Image, self).save(*args, **kwargs)

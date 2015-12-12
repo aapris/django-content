@@ -1,15 +1,9 @@
 import os
-
-#import tempfile
-#from PIL import Image
-
 from django.test import TestCase
-from django.utils import unittest
-#from django.db import connection, transaction, IntegrityError
-#from django.contrib.auth.models import User
+import unittest
 
-import content.filetools2
-from content.filetools2 import create_videoinstance, create_audioinstance
+import content.filetools
+from content.filetools import create_videoinstance, create_audioinstance
 
 from content.models import Content
 from content.models import Videoinstance, Audioinstance
@@ -49,6 +43,8 @@ class ContentTestCase(unittest.TestCase):
             cnt += 1
             c = Content(caption=u'New content #%d' % cnt)
             full_path = os.path.join(TESTCONTENT_DIR, filename)
+            if not os.path.isfile(full_path):
+                continue
             c.set_file(filename, full_path)
             c.set_fileinfo()
             c.generate_thumbnail()
@@ -56,8 +52,8 @@ class ContentTestCase(unittest.TestCase):
             maintype = c.mimetype.split('/')[0]
             print "MIMETYYPPI", c.mimetype, c.preview
             if maintype in ['video', 'audio']:
-                ffp = content.filetools2.FFProbe(c.file.path)
-                info = content.filetools2.fileinfo(c.file.path)
+                ffp = content.filetools.FFProbe(c.file.path)
+                info = content.filetools.fileinfo(c.file.path)
                 print info
                 #finfo = get_ffmpeg_videoinfo(c.file.path)
                 #print finfo
@@ -107,8 +103,8 @@ class ContentTestCase(unittest.TestCase):
             maintype = c.mimetype.split('/')[0]
             print "MIMETYYPPI", c.mimetype, c.preview
             if maintype in ['video', 'audio']:
-                ffp = content.filetools2.FFProbe(c.file.path)
-                info = content.filetools2.fileinfo(c.file.path)
+                ffp = content.filetools.FFProbe(c.file.path)
+                info = content.filetools.fileinfo(c.file.path)
                 print info
                 #finfo = get_ffmpeg_videoinfo(c.file.path)
                 #print finfo
@@ -156,7 +152,7 @@ class FiletoolsTestCase(TestCase):
         for filename in files:
             cnt += 1
             path = os.path.join(testdir, filename)
-            ffp = content.filetools2.FFProbe(path)
+            ffp = content.filetools.FFProbe(path)
             self.assertTrue(ffp.is_audio(), "Error '%s'" % filename)
             self.assertFalse(ffp.is_video(), "Error '%s'" % filename)
         print "Tested %d audio files" % cnt
@@ -170,7 +166,7 @@ class FiletoolsTestCase(TestCase):
         for filename in files:
             cnt += 1
             path = os.path.join(testdir, filename)
-            ffp = content.filetools2.FFProbe(path)
+            ffp = content.filetools.FFProbe(path)
             self.assertTrue(ffp.is_video(), "Error '%s'" % filename)
             self.assertFalse(ffp.is_audio(), "Error '%s'" % filename)
         print "Tested %d video files" % cnt
@@ -184,8 +180,8 @@ class FiletoolsTestCase(TestCase):
         for filename in files:
             cnt += 1
             path = os.path.join(testdir, filename)
-            new_video, cmd_str = content.filetools2.create_videoinstance(path)
-            ffp = content.filetools2.FFProbe(new_video)
+            new_video, cmd_str = content.filetools.create_videoinstance(path)
+            ffp = content.filetools.FFProbe(new_video)
             print new_video, ffp.get_videoinfo()
             os.unlink(new_video)
             #self.assertTrue(ffp.is_video(), "Error '%s'" % filename)

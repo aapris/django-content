@@ -22,8 +22,8 @@ from content.models import Content, Mail
 
 # FIXME: handle mailed files elsewhere, e.g. in comeup app
 
-from content.filetools2 import create_videoinstance, create_audioinstance
-import content.filetools2
+from content.filetools import create_videoinstance, create_audioinstance
+import content.filetools
 
 from content.models import Videoinstance, Audioinstance
 
@@ -48,7 +48,7 @@ def create_instances2(limit, pk, uid, redo):
             else:
                 print "%s has already %d instances" % (c, len(old_instances))
                 continue
-        ffp = content.filetools2.FFProbe(c.file.path)
+        ffp = content.filetools.FFProbe(c.file.path)
         if ffp.is_video():
             finfo = ffp.get_videoinfo()
             #print finfo
@@ -67,7 +67,7 @@ def create_instances2(limit, pk, uid, redo):
                 ext, mimetype, param = x
                 new_video, cmd_str = create_videoinstance(c.file.path, param, ext = ext)
                 print cmd_str
-                ffp2 = content.filetools2.FFProbe(new_video)
+                ffp2 = content.filetools.FFProbe(new_video)
                 info = ffp2.get_videoinfo()
                 if not info:
                     msg = "FFMPEG/VIDEOINSTANCE FAILED: %s" % cmd_str
@@ -80,7 +80,7 @@ def create_instances2(limit, pk, uid, redo):
                 #c.video.generate_thumb()
                 #print new_video, ext
                 vi.set_file(new_video, ext)
-                ffp2 = content.filetools2.FFProbe(vi.file.path)
+                ffp2 = content.filetools.FFProbe(vi.file.path)
                 info = ffp2.get_videoinfo()
                 #print "KAAAAAAAKKK", info
                 #os.unlink(new_video)
@@ -97,7 +97,7 @@ def create_instances2(limit, pk, uid, redo):
                 ext, mimetype, param = x
                 new_video, cmd_str = create_audioinstance(c.file.path,
                                                           param, ext=ext)
-                ffp2 = content.filetools2.FFProbe(new_video)
+                ffp2 = content.filetools.FFProbe(new_video)
                 info = ffp2.get_audioinfo()
                 if not info:
                     msg = "FFMPEG/AUDIOINSTANCE FAILED: %s" % cmd_str
@@ -109,7 +109,7 @@ def create_instances2(limit, pk, uid, redo):
                 ai.save()
                 ai.set_file(new_video, ext)
 
-                ffp2 = content.filetools2.FFProbe(ai.file.path)
+                ffp2 = content.filetools.FFProbe(ai.file.path)
                 info = ffp2.get_audioinfo()
                 #print info
                 ai.set_metadata(info)
