@@ -5,6 +5,7 @@ import re
 import subprocess
 import json
 import datetime
+import tempfile
 import logging
 import warnings
 import functools
@@ -339,20 +340,18 @@ def fileinfo(filepath):
     return info
 
 
-import tempfile
-
 def create_videoinstance(filepath, params=[], outfile=None, ext='webm'):
-    # ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
     ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
     if outfile is None:
         outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
     if not params:
-        params = ['-acodec', 'libvorbis', '-ac', '2', '-ab', '96k', '-ar', '22050', '-b', '345k', '-s', '320x240']
+        params = ['-c:a', 'libvorbis', '-c:v', 'libvpx', '-ac', '2', '-b:v', '512k', '-vf', 'scale=320:-1']
     full_cmd = ffmpeg_cmd + params + [outfile]
     cmd_str = ' '.join(full_cmd)
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
-    out = p.stdout.read()
+    # out = p.stdout.read()
+    # print out
     return outfile, cmd_str
 
 
@@ -367,7 +366,8 @@ def create_audioinstance(filepath, params=[], outfile=None, ext='mp3'):
     cmd_str = ' '.join(full_cmd)
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
-    out = p.stdout.read()
+    # out = p.stdout.read()
+    # print out
     return outfile, cmd_str
 
 
