@@ -1,30 +1,27 @@
 # -*- coding: utf-8 -*-
 
-from django.conf import settings
-from django.contrib.auth.models import User
+# from django.conf import settings
+# from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.cache import cache_page
+from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.http import Http404
-from django.template import Context
+# from django.template import Context
 from django.template import RequestContext
 from django.shortcuts import render_to_response
 from django.utils.translation import ugettext_lazy as _
-from django.utils.encoding import smart_unicode, force_unicode
+# from django.utils.encoding import smart_unicode, force_unicode
+from django.core.servers.basehttp import FileWrapper
 from django.core.urlresolvers import reverse
-#from django.db.models import Avg, Max, Min, Count, Sum
 from django.db.models import Q
 
 from django.contrib.gis.geos import Point
 
 import os
-#import os.path
 import StringIO
-#import tempfile
-#import PIL
-#from PIL import Image, ImageDraw, ImageFont
 from PIL import Image as ImagePIL
 from PIL import ImageDraw, ImageFont
 import json
@@ -41,6 +38,7 @@ TODO: make GeoIP work!
 TODO: try to make PyExiv2 work
 """
 
+
 def _render_to_response(request, template, variables):
     """
     Wrapper for render_to_response() shortcut.
@@ -49,15 +47,21 @@ def _render_to_response(request, template, variables):
     variables['request'] = request
     variables['uploadform'] = UploadForm()
     variables['searchform'] = SearchForm(request.GET)
-    return render_to_response(template, variables,
-                              context_instance=RequestContext(request),
-                             )
+    return render_to_response(
+        template, variables, context_instance=RequestContext(request),
+    )
 
 
 @login_required
 def index(request):
     """
     Renders the index page of Content.
+
+    Args:
+        request: the request object
+
+    Returns:
+        response: a http response object
     """
     if request.user.is_superuser:
         latest_objects = Content.objects.all()
@@ -75,49 +79,59 @@ def index(request):
         'latest_objects': latest_objects,
     })
 
+
 @login_required
 def upload(request):
     """
     Renders the upload form page.
+
+    Args:
+        request: the request object
+
+    Returns:
+        response: a http response object
     """
-    if request.method == 'POST': # If the form has been submitted...
-        form = UploadForm(request.POST, request.FILES) # A form bound to the POST data
-        if form.is_valid(): # All validation rules pass
+    if request.method == 'POST':  # If the form has been submitted...
+        form = UploadForm(request.POST, request.FILES)  # A form bound to the POST data
+        if form.is_valid():  # All validation rules pass
             for filefield, tmpname in handle_uploaded_file(request):
                 c = Content()
                 originalname = str(request.FILES["file"])
-                c.user = request.user # Only authenticated users can use this view
-                c.set_file(originalname, tmpname) # Save uploaded file to filesystem
-                c.get_type_instance() # Create thumbnail if it is supported
+                c.user = request.user  # Only authenticated users can use this view
+                c.set_file(originalname, tmpname)  # Save uploaded file to filesystem
+                c.get_type_instance()  # Create thumbnail if it is supported
                 c.save()
                 Uploadinfo.create(c, request)
-                #uli.set_request_data(request)
-                #uli.save()
+                # uli.set_request_data(request)
+                # uli.save()
             return HttpResponseRedirect(reverse('content:edit', args=[c.uid]))
     else:
-        form = UploadForm(initial={}) # An unbound form
+        form = UploadForm(initial={})  # An unbound form
     return _render_to_response(request, 'content_upload.html', {
                                   'uploadform' : form,
                                })
 
-# TODO: move this elsewhere, e.g. to apitastypie.py
-from django.views.decorators.csrf import csrf_exempt
 
 @csrf_exempt
-#@login_required
 def api_upload(request):
     """
     Renders the upload form page.
+
+    Args:
+        request: the request object
+
+    Returns:
+        response: a http response object
     """
-    if request.method == 'POST': # If the form has been submitted...
-        #for header in request.META.keys():
+    if request.method == 'POST':  # If the form has been submitted...
+        # for header in request.META.keys():
         #    if header.startswith('HTTP'):
         #        print header, request.META[header]
-        #print request.raw_post_data[:1000]
+        # print request.raw_post_data[:1000]
         if request.user.is_authenticated() is False:
             return HttpResponse(status=401)
-        form = UploadForm(request.POST, request.FILES) # A form bound to the POST data
-        if form.is_valid(): # All validation rules pass
+        form = UploadForm(request.POST, request.FILES)  # A form bound to the POST data
+        if form.is_valid():  # All validation rules pass
             for filefield, tmpname in handle_uploaded_file(request):
                 SUPPORTED_FIELDS = ['title', 'caption', 'author']
                 kwargs = {}
@@ -126,23 +140,26 @@ def api_upload(request):
                 try:
                     kwargs['point'] = Point(float(request.POST.get('lon')), float(request.POST.get('lat')))
                 except:
-                    #raise
+                    # raise
                     pass
                 print kwargs
                 c = Content(**kwargs)
                 originalname = str(request.FILES["file"])
-                c.user = request.user # Only authenticated users can use this view
-                c.set_file(originalname, tmpname) # Save uploaded file to filesystem
-                c.get_type_instance() # Create thumbnail if it is supported
+                # Only authenticated users can use this view
+                c.user = request.user
+                # Save uploaded file to filesystem
+                c.set_file(originalname, tmpname)
+                # Create thumbnail if it is supported
+                c.get_type_instance()
                 c.save()
                 Uploadinfo.create(c, request)
-                break # We save only the first file
+                break  # We save only the first file
             response = HttpResponse(status=201)
-            #response.status_code = 201
+            # response.status_code = 201
             # FIXME: use reverse()
             response['Location'] = '/content/api/v1/content/%s/' % c.uid
             return response
-            #return HttpResponseRedirect(reverse('content:edit', args=[c.uid]))
+            # return HttpResponseRedirect(reverse('content:edit', args=[c.uid]))
         else:
             response = HttpResponse(status=204)
             return response
@@ -150,36 +167,40 @@ def api_upload(request):
         raise Http404
 
 
-
-
 @login_required
 def html5upload(request):
     """
     Renders the upload form page.
+
+    Args:
+        request: the request object
+
+    Returns:
+        response: a http response object
     """
-    if request.method == 'POST': # If the form has been submitted...
+    if request.method == 'POST':  # If the form has been submitted...
         result = []
         for filefield, tmpname in handle_uploaded_file(request):
             c = Content()
             originalname = str(request.FILES["file"])
-            c.user = request.user # Only authenticated users can use this view
-            c.set_file(originalname, tmpname) # Save uploaded file to filesystem
-            c.get_type_instance() # Create thumbnail if it is supported
+            c.user = request.user  # Only authenticated users can use this view
+            c.set_file(originalname, tmpname)  # Save uploaded file to filesystem
+            c.get_type_instance()  # Create thumbnail if it is supported
             c.save()
             Uploadinfo.create(c, request).save()
-            #print originalname
-            #generating json response array
+            # print originalname
+            # generating json response array
             result.append({"name": originalname,
                            "size": c.filesize,
                            "url": reverse('content:edit', args=[c.uid]),
                            "thumbnail_url": '/content/instance/%s-200x200.jpg' % c.uid,
                            "delete_url": reverse('content:edit', args=[c.uid]),
                            "delete_type":"POST",})
-        #print result
+        # print result
         response_data = json.dumps(result)
-        #print response_data
-        #checking for json data type
-        #big thanks to Guy Shapiro
+        # print response_data
+        # checking for json data type
+        # big thanks to Guy Shapiro
         if "application/json" in request.META['HTTP_ACCEPT_ENCODING']:
             mimetype = 'application/json'
         else:
@@ -189,11 +210,17 @@ def html5upload(request):
                                })
 
 
-
 @login_required
 def edit(request, uid):
     """
     Renders the edit form page.
+
+    Args:
+        request: the request object
+        uid: Content object uid
+
+    Returns:
+        response: a http response object
     """
     # Check that object exists and user is allowed to edit it
     try:
@@ -201,24 +228,24 @@ def edit(request, uid):
     except Content.DoesNotExist:
         raise Http404
     if object.user != request.user and not request.user.is_superuser:
-        raise Http404 # FIXME: unauthorized instead
+        raise Http404  # FIXME: unauthorized instead
     # Create form instance
-    if request.method == 'POST': # If the form has been submitted...
+    if request.method == 'POST':  # If the form has been submitted...
         form = ContentModelForm(request.POST, instance=object)
-        if form.is_valid(): # All validation rules pass
+        if form.is_valid():  # All validation rules pass
             new_object = form.save(commit=False)
             if form.cleaned_data['latlon']:
                 lat, lon = [float(x) for x in form.cleaned_data['latlon'].split(',')]
                 new_object.point = Point(lon, lat)
-                #print lat, lon, new_object.point
+                # print lat, lon, new_object.point
             else:
                 new_object.point = None
             msg = _(u'Form was saved successfully')
             messages.success(request, msg)
             new_object.save()
             return HttpResponseRedirect(reverse('content:edit', args=[new_object.uid]))
-        #else:
-        #    form = UploadForm(initial={}) # An unbound form
+        # else:
+        #    form = UploadForm(initial={})  # An unbound form
     else:
         initial = {}
         if object and object.point:
@@ -228,6 +255,7 @@ def edit(request, uid):
                                   'editform' : form,
                                   'object': object,
                                })
+
 
 @login_required
 def search(request):
@@ -249,30 +277,31 @@ def _get_placeholder_instance(c, text=None):
         imtext = [u'Broken', u'file']
     if len(imtext) == 1:
         imtext.append(u'')
-    im = ImagePIL.new(immode, imsize, '#eeeeee')
+    im = ImagePIL.new(immode, imsize, '# eeeeee')
     draw = ImageDraw.Draw(im)
     try:
         font = ImageFont.truetype(imfont, imfontsize, encoding='unic')
     except IOError, err:
         logger.warning("Could not find font? %s" % str(err))
         font = ImageFont.load_default()
-        #raise
+        # raise
     
-    draw.text((5,10), imtext[0], font=font, fill='#333333')
-    draw.text((5,35), imtext[1], font=font, fill='#333333')
-    #corners = [(0,0), 
+    draw.text((5,10), imtext[0], font=font, fill='# 333333')
+    draw.text((5,35), imtext[1], font=font, fill='# 333333')
+    # corners = [(0,0), 
     #           (imsize[0], 0), 
     #           (imsize[0], imsize[1]),
     #           (0, imsize[1]),
     #           (0,0)
     #           ]
-    #for i in range(0,len(corners)-1):
-    #    draw.line((corners[i], corners[i+1]), width=3, fill='#000000')
+    # for i in range(0,len(corners)-1):
+    #    draw.line((corners[i], corners[i+1]), width=3, fill='# 000000')
     del draw
-    #im.save("/tmp/text.png", "PNG")
+    # im.save("/tmp/text.png", "PNG")
     return im 
 
-#@cache_page(60 * 60) # FIXME: this value should in settings.py
+
+# @cache_page(60 * 60)  # FIXME: this value should in settings.py
 @cache_page(60 * 60)
 def instance(request, uid, width, height, action, ext):
     """
@@ -288,10 +317,13 @@ def instance(request, uid, width, height, action, ext):
         raise Http404
     if c.mimetype:
         contenttype = c.mimetype.split("/")[0]
-    else: # FIXME: no mimetype, content may be broken? Check where contenttype is set and make sure there is some meaningful value always! Perhaps required field?
+    else:
+        # FIXME: no mimetype, content may be broken?
+        # Check where contenttype is set and make sure there is
+        # some meaningful value always! Perhaps required field?
         contenttype = None
     # Return image if type is image or video
-    #if contenttype in ['image', 'video']:
+    # if contenttype in ['image', 'video']:
     if True or contenttype in ['image', 'video']:
         thumbnail = None
         # FIXME: check does the content have a thumbnail here!
@@ -315,18 +347,18 @@ def instance(request, uid, width, height, action, ext):
             msg = "ValueERROR in Content, missing thumbnail %s: %s" % (c.uid, str(err))
             logger.warning(msg)
             im = _get_placeholder_instance(c, text=u'Missing thumbnail')
-            #return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
+            # return HttpResponse('ERROR: This Content has no thumbnail.', status=404)
         size = int(width), int(height)
         if action == '-crop':
             shorter_side = min(im.size)
             side_divider = 1.0 * shorter_side / min(size)
             crop_size = int(max(im.size) / side_divider) + 1
-            #print shorter_side, side_divider, im.size, crop_size
+            # print shorter_side, side_divider, im.size, crop_size
             size = (crop_size, crop_size)
             im.thumbnail(size, ImagePIL.ANTIALIAS)
             margin = (max(im.size) - min(im.size)) / 2
             crop_size = min(im.size)
-            if im.size[0] > im.size[1]: #horizontal
+            if im.size[0] > im.size[1]:  # horizontal
                 crop = [0 + margin, 0, margin + crop_size, crop_size]
             else:
                 crop = [0, 0 + margin, crop_size, margin + crop_size]
@@ -350,9 +382,10 @@ def instance(request, uid, width, height, action, ext):
     else:
         data = "Requested %s %s %s %s %s " % (c.mimetype, uid, width, height, ext)
         response.write(data)
-        response["Content-Type"] = "text/plain" #content_item.mime
+        response["Content-Type"] = "text/plain"  # content_item.mime
         response["Content-Length"] = len(data)
         return response
+
 
 @cache_page(60 * 60)
 def view(request, uid, width, height, action, ext):
@@ -362,7 +395,7 @@ def view(request, uid, width, height, action, ext):
     action can be '-crop'
     """
     # w, h = width, height
-    #response = HttpResponse()
+    # response = HttpResponse()
     thumbnail = None
     try:
         content = Content.objects.get(uid=uid)
@@ -371,7 +404,7 @@ def view(request, uid, width, height, action, ext):
     # Find thumbnail, currently new place is content.preview, but content.image.thumbnail is still in use
     if content.preview:
         thumbnail = content.preview
-    else: # TODO: to be removed after image.thumbnails are converted to content.preview
+    else:  # TODO: to be removed after image.thumbnails are converted to content.preview
         try:
             if content.mimetype.startswith('image') and content.image:
                 thumbnail = content.image.thumbnail
@@ -400,7 +433,7 @@ def view(request, uid, width, height, action, ext):
     # Width and height may be %d if the client uses preview_uri literally
     # (it should replace them with integer).
     if width in ['%d', '%(width)d'] and height in ['%d', '%(height)d']:
-        #size = 320, 240
+        # size = 320, 240
         size = 640, 480
     else:
         size = int(width), int(height)
@@ -409,12 +442,12 @@ def view(request, uid, width, height, action, ext):
         shorter_side = min(im.size)
         side_divider = 1.0 * shorter_side / min(size)
         crop_size = int(max(im.size) / side_divider) + 1
-        #print shorter_side, side_divider, im.size, crop_size
+        # print shorter_side, side_divider, im.size, crop_size
         size = (crop_size, crop_size)
         im.thumbnail(size, ImagePIL.ANTIALIAS)
         margin = (max(im.size) - min(im.size)) / 2
         crop_size = min(im.size)
-        if im.size[0] > im.size[1]: #horizontal
+        if im.size[0] > im.size[1]:  # horizontal
             crop = [0 + margin, 0, margin + crop_size, crop_size]
         else:
             crop = [0, 0 + margin, crop_size, margin + crop_size]
@@ -440,7 +473,8 @@ def view(request, uid, width, height, action, ext):
     response['Last-Modified'] = content.updated.strftime('%a, %d %b %Y %H:%M:%S GMT')
     return response
 
-#@cache_page(60 * 60)
+
+# @cache_page(60 * 60)
 def foobar(request, uid, id, ext):
     """
     Return converted version of Content, if the format is video or audio
@@ -466,8 +500,8 @@ def foobar(request, uid, id, ext):
     response["Content-Type"] = inst.mimetype
     response["Content-Length"] = inst.filesize
     # These are needed to make <video> allow restarting the video
-    #Content-Range: bytes 0-318464/318465
-    #Accept-Ranges: bytes
+    # Content-Range: bytes 0-318464/318465
+    # Accept-Ranges: bytes
     response["Content-Range"] = "bytes 0-%d/%d" % (inst.filesize - 1, inst.filesize)
     response["Accept-Ranges"] = "bytes"
     if 'attachment' in request.GET:
@@ -477,16 +511,14 @@ def foobar(request, uid, id, ext):
     return response
 
 
-from django.core.servers.basehttp import FileWrapper
-
-#@login_required
-#@cache_page(60 * 60)
+# @login_required
+# @cache_page(60 * 60)
 def original(request, uid, filename = None):
     """
     Return original file.
     """
     # FIXME: this doesn't authenticate!
-    uid = uid.split('.')[0] # remove possible extension
+    uid = uid.split('.')[0]  # remove possible extension
     try:
         c = Content.objects.get(uid=uid)
     except Content.DoesNotExist:
@@ -498,16 +530,17 @@ def original(request, uid, filename = None):
     if 'attachment' in request.GET:
         if filename:
             response["Content-Disposition"] = "attachment"
-        else: # FIXME: this will fail if filename contains non-ascii chars
+        else:  # FIXME: this will fail if filename contains non-ascii chars
             response["Content-Disposition"] = "attachment; filename=%s" % (c.originalfilename)
-    #tmp = open(c.file.path, "rb")
-    #data = tmp.read()
-    #tmp.close()
-    #response = HttpResponse()
-    #response.write(data)
-    #response["Content-Type"] = c.mimetype
-    #response["Content-Length"] = len(data)
+    # tmp = open(c.file.path, "rb")
+    # data = tmp.read()
+    # tmp.close()
+    # response = HttpResponse()
+    # response.write(data)
+    # response["Content-Type"] = c.mimetype
+    # response["Content-Length"] = len(data)
     return response
+
 
 @login_required
 def metadata(request, uid):
@@ -528,7 +561,7 @@ def metadata(request, uid):
     data = "\n".join(data)
     response = HttpResponse()
     response.write(data)
-    response["Content-Type"] = "text/plain" #content_item.mime
+    response["Content-Type"] = "text/plain"  # content_item.mime
     response["Content-Length"] = len(data)
     response["Content-disposition"] = "attachment; filename=fotorally-%s.txt" % (c.uid)
     return response
