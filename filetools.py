@@ -114,7 +114,10 @@ class FFProbe:
             if streamInfo['codec_type'] == 'video':
                 # Images and other binaries are sometimes parsed as videos,
                 # so also check that there's at least 1 second of video
-                duration = streamInfo.get('duration', 0.0)
+                duration = streamInfo.get('duration')
+                if duration is None:
+                    if 'format' in self.data:
+                        duration = self.data['format'].get('duration', 0.0)
                 if float(duration) > 1.0:
                     return True
         # If we can't find any video streams, the file is not a video
