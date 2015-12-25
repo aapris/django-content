@@ -314,21 +314,49 @@ def get_imageinfo(filepath):
 
 def fileinfo(filepath):
     """
-    Return some information from file found in 'path'.
+    Retrieves file metadata.
     filemtime, filesize and mimetypa are always present.
     Image, Video and audio files may have also width, height, duration,
     creation_time, lat, lon (gps coordinates) etc. info.
     Images may have also some exif and IPTC field parsed.
+
+    Args:
+        filepath (str):
+
+    Returns:
+        A dict containing some information from file found in `filepath`.
+        Example:
+        {
+            'mimetype': 'image/jpeg',
+            'width': 4032,
+            'height': 3024,
+            'lat': 65.01416666666667,
+            'lon': 25.471327777777777,
+            'iptc': <iptcinfo.IPTCInfo object at 0x10fb41910>,
+            'filesize': 2229010,
+            'filemtime': datetime.datetime(2015, 12, 15, 14, 33, 46),
+            'creation_time': datetime.datetime(2015, 12, 15, 14, 33, 46),
+            'gps': {
+                'gpstime': datetime.datetime(2015, 12, 15, 12, 33, 45,
+                                             tzinfo=<UTC>),
+                'direction': 289.50522648083626,
+                'lat': 65.01416666666667,
+                'direction_ref': u'T',
+                'altitude': 20.712585034013607,
+                'lon': 25.471327777777777
+            }
+        }
+
     """
     info = {}
     # Get quickly mimetype first, because we don't want to run FFProbe
     # for e.g. xml files
     with open(filepath, 'rb') as f:
         mimetype = magic.from_buffer(f.read(4096), mime=True)
-    # mimetype = magic.from_file(path, mime=True)
     # Do not ffprobe, if mimetype is some of these:
-    no_ffprobe = ['application/pdf', 'application/xml']
-    if mimetype not in no_ffprobe and not mimetype.startswith('image'):
+    # no_ffprobe = ['application/pdf', 'application/xml']
+    if mimetype.startswith(('video', 'audio')) or \
+                    mimetype == 'application/octet-stream':
         ffp = FFProbe(filepath)
         if ffp.is_video():
             info = ffp.get_videoinfo()
