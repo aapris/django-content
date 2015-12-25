@@ -186,6 +186,14 @@ class FFProbe:
                 self.get_duration(stream, info)
                 info['width'] = int(stream.get('width', 0))
                 info['height'] = int(stream.get('height', 0))
+                # file --mime --brief thinks .ts files (MPEG transport stream)
+                # are application/octet-stream, but ffprobe knows it better
+                # https://en.wikipedia.org/wiki/MPEG_transport_stream
+                if 'format' in self.data:
+                    if self.data['format'].get('format_name') == 'mpegts':
+                        info['mimetype'] = 'video/mp2t'
+                    elif self.data['format'].get('format_name') == 'flv':
+                        info['mimetype'] = 'video/flv'
                 break
         if 'bit_rate' in self.data['format']:
             info['bitrate'] = int(self.data['format']['bit_rate'])
