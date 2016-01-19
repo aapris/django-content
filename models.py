@@ -18,7 +18,7 @@ import string
 import random
 import tempfile
 import StringIO
-from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.core.files.uploadedfile import UploadedFile
 
 from filetools import deprecated
 
@@ -230,7 +230,7 @@ class Content(models.Model):
         self.save()  # Must save here to get self.id
         root, ext = os.path.splitext(originalfilename)
         filename = u"%09d-%s%s" % (self.id, self.uid, ext.lower())
-        if isinstance(filecontent, InMemoryUploadedFile):  # Is open file
+        if isinstance(filecontent, UploadedFile):  # Is an open file
             self.file.save(filename, File(filecontent))
         elif isinstance(filecontent, file):  # Is open file
             self.file.save(filename, File(filecontent))
