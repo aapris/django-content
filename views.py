@@ -277,7 +277,7 @@ def _get_placeholder_instance(c, text=None):
         imtext = [u'Broken', u'file']
     if len(imtext) == 1:
         imtext.append(u'')
-    im = ImagePIL.new(immode, imsize, '# eeeeee')
+    im = ImagePIL.new(immode, imsize, '#eeeeee')
     draw = ImageDraw.Draw(im)
     try:
         font = ImageFont.truetype(imfont, imfontsize, encoding='unic')
@@ -286,8 +286,8 @@ def _get_placeholder_instance(c, text=None):
         font = ImageFont.load_default()
         # raise
     
-    draw.text((5,10), imtext[0], font=font, fill='# 333333')
-    draw.text((5,35), imtext[1], font=font, fill='# 333333')
+    draw.text((5,10), imtext[0], font=font, fill='#333333')
+    draw.text((5,35), imtext[1], font=font, fill='#333333')
     # corners = [(0,0), 
     #           (imsize[0], 0), 
     #           (imsize[0], imsize[1]),
@@ -295,7 +295,7 @@ def _get_placeholder_instance(c, text=None):
     #           (0,0)
     #           ]
     # for i in range(0,len(corners)-1):
-    #    draw.line((corners[i], corners[i+1]), width=3, fill='# 000000')
+    #    draw.line((corners[i], corners[i+1]), width=3, fill='#000000')
     del draw
     # im.save("/tmp/text.png", "PNG")
     return im 
