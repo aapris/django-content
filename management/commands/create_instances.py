@@ -119,52 +119,52 @@ def create_instances2(limit, pk, uid, redo):
                 print ai.mimetype, ai.duration
 
 
-
 class Command(BaseCommand):
-    # Limit max number of contents to process
-    option_list = BaseCommand.option_list + (
-        make_option('--limit',
-                    action='store',
-                    dest='limit',
-                    type='int',
-                    default=0,
-                    help='Limit the number of contents to handle'),
-        )
-    option_list = option_list + (
-        make_option('--redo',
-                    action='store_true',
-                    dest='redo',
-                    default=False,
-                    help=u'Redo all instances, delete existing ones'),
-        )
-    # is this in use?
-    option_list = option_list + (
-        make_option('--types',
-                    action='store_true',
-                    dest='simulate',
-                    default=False,
-                    help=u'Process content but do not flag it processed, also do not save actual files to the database'),
-        )
-    option_list = option_list + (
-        make_option('--pk',
-                    action='store',
-                    dest='pk',
-                    help=u'Process only Content with given PK (id)'),
-        )
-    option_list = option_list + (
-        make_option('--uid',
-                    action='store',
-                    dest='uid',
-                    help=u'Process only Content with given UID'),
-        )
-    args = ''
-    help = 'Process new retrieved contents'
+
+    help = 'Create different video and audio instances from original ' \
+           'media file'
+
+    def add_arguments(self, parser):
+
+        parser.add_argument(
+            '-r', '--redo',
+            action='store_true',
+            dest='redo',
+            default=False,
+            help=u'Redo all instances, delete existing ones')
+
+        parser.add_argument(
+            '--limit',
+            action='store',
+            dest='limit',
+            type=int,
+            default=0,
+            help='Limit the number of contents to handle')
+
+        parser.add_argument(
+            '--types',
+            action='store_true',
+            dest='simulate',
+            help=u'Process content but do not flag it processed, also '
+                 u'do not save actual files to the database')
+
+        parser.add_argument(
+            '--pk',
+            action='store',
+            dest='pk',
+            help=u'Process only Content with given PK (id)')
+
+        parser.add_argument(
+            '--uid',
+            action='store',
+            dest='uid',
+            help=u'Process only Content with given UID')
 
     def handle(self, *args, **options):
         limit = options.get('limit')
         pk = options.get('pk')
         uid = options.get('uid')
         redo = options.get('redo')
-        #verbosity = options.get('verbosity')
-        #simulate = options.get('simulate')
+        # verbosity = options.get('verbosity')
+        # simulate = options.get('simulate')
         create_instances2(limit=limit, pk=pk, uid=uid, redo=redo)
