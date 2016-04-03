@@ -14,7 +14,7 @@ from django.template import RequestContext
 from django.shortcuts import render_to_response
 from django.utils.translation import ugettext_lazy as _
 # from django.utils.encoding import smart_unicode, force_unicode
-from django.core.servers.basehttp import FileWrapper
+from wsgiref.util import FileWrapper
 from django.core.urlresolvers import reverse
 from django.db.models import Q
 
