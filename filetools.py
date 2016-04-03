@@ -79,6 +79,7 @@ class FFProbe:
         except subprocess.CalledProcessError as err:  # Probably file not found
             msg = 'Subprocess error: "{}". Command: "{}".'.format(
                 err, ' '.join(command))
+            # print('File exists: {}'.format(os.path.isfile(command[-1])))
             logger.warning(msg)
             raise
         except OSError as err:  # Probably executable was not found
@@ -389,8 +390,8 @@ def create_videoinstance(filepath, params=[], outfile=None, ext='webm'):
     cmd_str = ' '.join(full_cmd)
     p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
-    # out = p.stdout.read()
-    # print out
+    out = p.stdout.read()
+    # print "OUT", out
     return outfile, cmd_str
 
 
