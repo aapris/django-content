@@ -1,30 +1,26 @@
 # -*- coding: utf-8 -*-
 
-# from django.conf import settings
-# from django.contrib.auth.models import User
+from django.utils import six
+import os
+import StringIO
+import json
+from PIL import Image as ImagePIL
+from PIL import ImageDraw, ImageFont
+
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.gis.geos import Point
 from django.views.decorators.cache import cache_page
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.http import Http404
-# from django.template import Context
 from django.template import RequestContext
 from django.shortcuts import render_to_response
 from django.utils.translation import ugettext_lazy as _
-# from django.utils.encoding import smart_unicode, force_unicode
 from wsgiref.util import FileWrapper
 from django.core.urlresolvers import reverse
 from django.db.models import Q
-
-from django.contrib.gis.geos import Point
-
-import os
-import StringIO
-from PIL import Image as ImagePIL
-from PIL import ImageDraw, ImageFont
-import json
 
 from filehandler import handle_uploaded_file
 from models import Content, Uploadinfo, Videoinstance, Audioinstance
