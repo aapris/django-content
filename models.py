@@ -40,7 +40,8 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import *
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-
+# https://stackoverflow.com/a/48894881
+from django.db.models import Manager as GeoManager
 from django.utils.translation import ugettext_lazy as _
 
 from content.filetools import get_mimetype, do_pdf_thumbnail
@@ -163,8 +164,8 @@ class Content(models.Model):
                                choices=CONTENT_PRIVACY_CHOICES)
     uid = models.CharField(max_length=40, unique=True, db_index=True,
                            default=get_uid, editable=False)
-    user = models.ForeignKey(User, blank=True, null=True)
-    group = models.ForeignKey(Group, blank=True, null=True)
+    user = models.ForeignKey(User, blank=True, null=True, on_delete=models.SET_NULL)
+    group = models.ForeignKey(Group, blank=True, null=True, on_delete=models.SET_NULL)
     originalfilename = models.CharField(max_length=256, null=True,
                                         verbose_name=_('Original file name'),
                                         editable=False)
@@ -183,7 +184,7 @@ class Content(models.Model):
     # Links and relations to other content files
     peers = models.ManyToManyField("self", blank=True,
                                    editable=False)
-    parent = models.ForeignKey("self", blank=True, null=True, editable=False)
+    parent = models.ForeignKey("self", blank=True, null=True, editable=False, on_delete=models.SET_NULL)
     linktype = models.CharField(max_length=500, blank=True)
     # point (geography) is used for e.g. distance calculations
     point = models.PointField(geography=True, blank=True, null=True)
@@ -209,11 +210,11 @@ class Content(models.Model):
     expires = models.DateTimeField(blank=True, null=True)
 
     # In referencing model add e.g. `files = GenericRelation(Content)`
-    content_type = models.ForeignKey(ContentType, blank=True, null=True, default=None)
+    content_type = models.ForeignKey(ContentType, blank=True, null=True, default=None, on_delete=models.SET_NULL)
     object_id = models.PositiveIntegerField(blank=True, null=True)
     content_object = GenericForeignKey('content_type', 'object_id')
 
-    objects = models.GeoManager()
+    objects = GeoManager()
 
     # TODO: replace this with property stuff
     def latlon(self):
@@ -464,7 +465,7 @@ class Content(models.Model):
 
 @python_2_unicode_compatible
 class Image(models.Model):
-    content = models.OneToOneField(Content, primary_key=True, editable=False)
+    content = models.OneToOneField(Content, primary_key=True, editable=False, on_delete=models.CASCADE)
     width = models.IntegerField(blank=True, null=True, editable=False)
     height = models.IntegerField(blank=True, null=True, editable=False)
     # "Original image must be rotated n degrees CLOCKWISE before showing."
@@ -616,7 +617,7 @@ class Video(models.Model):
     """
     Dimensions (width, height), duration and bitrate of video media.
     """
-    content = models.OneToOneField(Content, primary_key=True, editable=False)
+    content = models.OneToOneField(Content, primary_key=True, editable=False, on_delete=models.CASCADE)
     width = models.IntegerField(blank=True, null=True, editable=False)
     height = models.IntegerField(blank=True, null=True, editable=False)
     duration = models.FloatField(blank=True, null=True, editable=False)
@@ -669,7 +670,7 @@ class Videoinstance(models.Model):
     height - pixels
     framerate - frames / sec
     """
-    content = models.ForeignKey(Content, editable=False,
+    content = models.ForeignKey(Content, editable=False, on_delete=models.CASCADE,
                                 related_name='videoinstances')
     mimetype = models.CharField(max_length=200, editable=False)
     filesize = models.IntegerField(blank=True, null=True, editable=False)
@@ -711,7 +712,7 @@ class Audio(models.Model):
     """
     Duration of audio media.
     """
-    content = models.OneToOneField(Content, primary_key=True, editable=False)
+    content = models.OneToOneField(Content, primary_key=True, editable=False, on_delete=models.CASCADE)
     duration = models.FloatField(blank=True, null=True)
     bitrate = models.FloatField(blank=True, null=True, editable=False)
 
@@ -732,7 +733,7 @@ class Audioinstance(models.Model):
     Dimensions (width, height), duration and bitrate of video media.
     TODO: images could be in separate model?
     """
-    content = models.ForeignKey(Content, editable=False,
+    content = models.ForeignKey(Content, editable=False, on_delete=models.CASCADE,
                                 related_name='audioinstances')
     mimetype = models.CharField(max_length=200, editable=False)
     filesize = models.IntegerField(blank=True, null=True, editable=False)
@@ -767,7 +768,7 @@ class Uploadinfo(models.Model):
     All possible information of the client who uploaded the Content file.
     Usage: Uploadinfo.create(c, request).save()
     """
-    content = models.OneToOneField(Content, primary_key=True, editable=False)
+    content = models.OneToOneField(Content, primary_key=True, editable=False, on_delete=models.CASCADE)
     sessionid = models.CharField(max_length=200, blank=True, editable=False)
     ip = models.GenericIPAddressField(blank=True, null=True, editable=False)
     useragent = models.CharField(max_length=500, blank=True, editable=False)

@@ -66,7 +66,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Audio',
             fields=[
-                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content')),
+                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content', on_delete=models.CASCADE)),
                 ('duration', models.FloatField(null=True, blank=True)),
                 ('bitrate', models.FloatField(null=True, editable=False, blank=True)),
             ],
@@ -92,7 +92,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Image',
             fields=[
-                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content')),
+                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content', on_delete=models.CASCADE)),
                 ('width', models.IntegerField(null=True, editable=False, blank=True)),
                 ('height', models.IntegerField(null=True, editable=False, blank=True)),
                 ('rotate', models.IntegerField(default=0, null=True, blank=True, choices=[(0, 0), (90, 90), (180, 180), (270, 270)])),
@@ -121,7 +121,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Uploadinfo',
             fields=[
-                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content')),
+                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content', on_delete=models.CASCADE)),
                 ('sessionid', models.CharField(max_length=200, editable=False, blank=True)),
                 ('ip', models.GenericIPAddressField(null=True, editable=False, blank=True)),
                 ('useragent', models.CharField(max_length=500, editable=False, blank=True)),
@@ -134,7 +134,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Video',
             fields=[
-                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content')),
+                ('content', models.OneToOneField(primary_key=True, serialize=False, editable=False, to='content.Content', on_delete=models.CASCADE)),
                 ('width', models.IntegerField(null=True, editable=False, blank=True)),
                 ('height', models.IntegerField(null=True, editable=False, blank=True)),
                 ('duration', models.FloatField(null=True, editable=False, blank=True)),
@@ -160,7 +160,7 @@ class Migration(migrations.Migration):
                 ('file', models.FileField(upload_to=content.models.upload_split_by_1000, storage=django.core.files.storage.FileSystemStorage(location=b'/Users/arista/Documents/workspace/Djangos/MestaDB/var/video'), editable=False)),
                 ('command', models.CharField(max_length=2000, editable=False)),
                 ('created', models.DateTimeField(auto_now_add=True)),
-                ('content', models.ForeignKey(related_name='videoinstances', editable=False, to='content.Content')),
+                ('content', models.ForeignKey(related_name='videoinstances', editable=False, to='content.Content', on_delete=models.CASCADE)),
             ],
             options={
             },
@@ -169,13 +169,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='content',
             name='group',
-            field=models.ForeignKey(blank=True, to='content.Group', null=True),
+            field=models.ForeignKey(blank=True, to='content.Group', null=True, on_delete=models.SET_NULL),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='content',
             name='parent',
-            field=models.ForeignKey(blank=True, editable=False, to='content.Content', null=True),
+            field=models.ForeignKey(blank=True, editable=False, to='content.Content', null=True, on_delete=models.SET_NULL),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -187,13 +187,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='content',
             name='user',
-            field=models.ForeignKey(blank=True, to=settings.AUTH_USER_MODEL, null=True),
+            field=models.ForeignKey(blank=True, to=settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='audioinstance',
             name='content',
-            field=models.ForeignKey(related_name='audioinstances', editable=False, to='content.Content'),
+            field=models.ForeignKey(related_name='audioinstances', editable=False, to='content.Content', on_delete=models.CASCADE),
             preserve_default=True,
         ),
     ]
