@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import hashlib
 import os
+import sys
 import re
 import subprocess
 import json
@@ -13,12 +14,17 @@ import warnings
 import functools
 from dateutil import parser
 import magic
-import exifparser
+from . import exifparser
 from PIL import Image as ImagePIL
-from iptcinfo import IPTCInfo
+
+if sys.version_info > (3, 0):
+    from iptcinfo3 import IPTCInfo
+else:
+    from .iptcinfo import IPTCInfo
 
 logging.getLogger().addHandler(logging.StreamHandler())
 logger = logging.getLogger('content')
+
 
 def deprecated(func):
     """
@@ -32,8 +38,8 @@ def deprecated(func):
         warnings.warn_explicit(
             "Call to deprecated function {}.".format(func.__name__),
             category=DeprecationWarning,
-            filename=func.func_code.co_filename,
-            lineno=func.func_code.co_firstlineno + 1
+            filename=func.__code__.co_filename,
+            lineno=func.__code__.co_firstlineno + 1
         )
         return func(*args, **kwargs)
     return new_func
@@ -222,7 +228,7 @@ class FFProbe:
         if 'bit_rate' in self.data['format']:
             info['bitrate'] = int(self.data['format']['bit_rate'])
         ext = os.path.splitext(self.path)[1].lstrip('.').lower()
-        if ext in self.audio_mimemap.keys():
+        if ext in list(self.audio_mimemap.keys()):
             info['mimetype'] = self.audio_mimemap[ext]
 
         # print ext, info
@@ -256,7 +262,7 @@ def guess_encoding(str_):
     http://stackoverflow.com/questions/4198804/how-to-reliably-guess-the-encoding-between-macroman-cp1252-latin1-utf-8-and-a
     """
     try:
-        unicode(str_, 'utf8')
+        str(str_, 'utf8')
         return "utf8"
     except UnicodeDecodeError:
         if re.compile(r'[\x00–\x1f\x7f-\x9f]').findall(str_):
@@ -307,7 +313,7 @@ def get_imageinfo(filepath):
             info['tags'] = iptc.data['keywords']
         for key in info:  # Convert all str values to unicode
             if isinstance(info[key], str):
-                info[key] = unicode(info[key], guess_encoding(info[key]))
+                info[key] = str(info[key], guess_encoding(info[key]))
     with open(str(filepath), 'rb') as f:
         im = ImagePIL.open(f)
         info['width'], info['height'] = im.size
@@ -473,7 +479,7 @@ def create_thumbnail(filepath, t):
     try:
         im = ImagePIL.open(filepath)
     except IOError:  # ImagePIL file is corrupted
-        print "ERROR in image file:", filepath
+        print("ERROR in image file:", filepath)
         return False
     if im.mode not in ('L', 'RGB'):
         im = im.convert('RGB')
@@ -498,7 +504,7 @@ def create_thumbnail(filepath, t):
 if __name__ == '__main__':
     import sys
     for path in sys.argv[1:]:
-        print path, fileinfo(path)
+        print(path, fileinfo(path))
     # ffp = FFProbe(path)
     # print path, ffp.is_video(), ffp.is_audio()
     # if ffp.is_video(): print ffp.get_videoinfo()

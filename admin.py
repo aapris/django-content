@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 
 """
 Content's admin definitions.
@@ -15,9 +15,9 @@ admin.site.register(Content, ContentAdmin)
 """
 
 from django.contrib import admin
-from models import Group
-from models import Content
-from models import Mail
+from .models import Group
+from .models import Content
+from .models import Mail
 
 
 class GroupAdmin(admin.ModelAdmin):

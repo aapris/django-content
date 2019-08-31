@@ -234,7 +234,7 @@ def main():
     for filepath in sys.argv[1:]:
         exif = read_exif(filepath)
         gps = parse_gps(exif)
-        print filepath, gps
+        print(filepath, gps)
 
 
 if __name__ == '__main__':
