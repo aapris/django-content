@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+from django.utils.encoding import python_2_unicode_compatible
 """
 Defines all supported different content type classes (image, video, audio etc.)
 If file type is not supported, it is saved "as is", without any metadata
@@ -17,10 +19,15 @@ from PIL import Image as ImagePIL
 import string
 import random
 import tempfile
-import StringIO
+import sys
+if sys.version_info > (3, 0):
+    from io import StringIO
+else:
+    from io import BytesIO as StringIO
+
 from django.core.files.uploadedfile import UploadedFile
 
-from filetools import deprecated
+from .filetools import deprecated
 
 from django.conf import settings
 
@@ -86,15 +93,15 @@ def get_uid(length=12):
     """
     alphanum = string.letters + string.digits
     return ''.join([alphanum[random.randint(0, len(alphanum) - 1)] for i in
-                    xrange(length)])
+                    range(length)])
 
 CONTENT_PRIVACY_CHOICES = (
-    ("PRIVATE", _(u"Private")),
-    ("RESTRICTED", _(u"Group")),
-    ("PUBLIC", _(u"Public"))
+    ("PRIVATE", _("Private")),
+    ("RESTRICTED", _("Group")),
+    ("PUBLIC", _("Public"))
 )
 
-
+@python_2_unicode_compatible
 class Group(models.Model):
     """
     """
@@ -106,10 +113,11 @@ class Group(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     updated = models.DateTimeField(auto_now=True, editable=False)
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s" % self.slug
 
 
+@python_2_unicode_compatible
 class Content(models.Model):
     """
     Common fields for all content files.
@@ -151,14 +159,14 @@ class Content(models.Model):
     status = models.CharField(max_length=40, default="UNPROCESSED",
                               editable=False)
     privacy = models.CharField(max_length=40, default="PRIVATE",
-                               verbose_name=_(u'Privacy'),
+                               verbose_name=_('Privacy'),
                                choices=CONTENT_PRIVACY_CHOICES)
     uid = models.CharField(max_length=40, unique=True, db_index=True,
                            default=get_uid, editable=False)
     user = models.ForeignKey(User, blank=True, null=True)
     group = models.ForeignKey(Group, blank=True, null=True)
     originalfilename = models.CharField(max_length=256, null=True,
-                                        verbose_name=_(u'Original file name'),
+                                        verbose_name=_('Original file name'),
                                         editable=False)
     filesize = models.IntegerField(null=True, editable=False)
     filetime = models.DateTimeField(blank=True, null=True, editable=False)
@@ -183,18 +191,18 @@ class Content(models.Model):
     point_geom = models.PointField(blank=True, null=True)
     # TODO: to be removed (text fields are implemented elsewhere
     title = models.CharField(max_length=200, blank=True,
-                             verbose_name=_(u'Title'))
+                             verbose_name=_('Title'))
     # TODO: to be removed (text fields are implemented elsewhere
-    caption = models.TextField(blank=True, verbose_name=_(u'Caption'))
+    caption = models.TextField(blank=True, verbose_name=_('Caption'))
     # TODO: to be removed (text fields are implemented elsewhere
     author = models.CharField(max_length=200, blank=True,
-                              verbose_name=_(u'Author'))
+                              verbose_name=_('Author'))
     # TODO: to be removed (text fields are implemented elsewhere
     keywords = models.CharField(max_length=500, blank=True,
-                                verbose_name=_(u'Keywords'))
+                                verbose_name=_('Keywords'))
     # TODO: to be removed (text fields are implemented elsewhere
     place = models.CharField(max_length=500, blank=True,
-                             verbose_name=_(u'Place'))
+                             verbose_name=_('Place'))
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     opens = models.DateTimeField(blank=True, null=True)
@@ -229,7 +237,7 @@ class Content(models.Model):
         self.originalfilename = os.path.basename(originalfilename)
         self.save()  # Must save here to get self.id
         root, ext = os.path.splitext(originalfilename)
-        filename = u"%09d-%s%s" % (self.id, self.uid, ext.lower())
+        filename = "%09d-%s%s" % (self.id, self.uid, ext.lower())
         if isinstance(filecontent, UploadedFile):  # Is an open file
             self.file.save(filename, File(filecontent))
         elif isinstance(filecontent, file):  # Is open file
@@ -338,7 +346,7 @@ class Content(models.Model):
             #print tmp_name
             if do_pdf_thumbnail(self.file.path, tmp_name):
                 postfix = "%s-%s-%sx%s" % THUMBNAIL_PARAMETERS
-                filename = u"%09d-%s-%s.png" % (self.id, self.uid, postfix)
+                filename = "%09d-%s-%s.png" % (self.id, self.uid, postfix)
                 if os.path.isfile(tmp_name):
                     with open(tmp_name, "rb") as f:
                         self.preview.save(filename, File(f))
@@ -388,7 +396,7 @@ class Content(models.Model):
             #print tmp_name
             if do_pdf_thumbnail(self.file.path, tmp_name):
                 postfix = "%s-%s-%sx%s" % THUMBNAIL_PARAMETERS
-                filename = u"%09d-%s-%s.png" % (self.id, self.uid, postfix)
+                filename = "%09d-%s-%s.png" % (self.id, self.uid, postfix)
                 if os.path.isfile(tmp_name):
                     with open(tmp_name, "rb") as f:
                         self.preview.save(filename, File(f))
@@ -448,12 +456,13 @@ class Content(models.Model):
             self.save()
             #super(Content, self).delete(*args, **kwargs)
 
-    def __unicode__(self):
+    def __str__(self):
         text = self.caption[:50] if self.caption else self.title
-        return u'"%s" (%s %s B)' % (
+        return '"%s" (%s %s B)' % (
             text, self.mimetype, self.filesize)
 
 
+@python_2_unicode_compatible
 class Image(models.Model):
     content = models.OneToOneField(Content, primary_key=True, editable=False)
     width = models.IntegerField(blank=True, null=True, editable=False)
@@ -469,9 +478,9 @@ class Image(models.Model):
     # FIXME: this is probably not in use
     def orientation(self):
         if self.width > self.height:
-            return u'horizontal'
+            return 'horizontal'
         else:
-            return u'vertical'
+            return 'vertical'
 
     def set_metadata(self, info):
         self.width = info.get('width')
@@ -501,12 +510,12 @@ class Image(models.Model):
                     self.rotate = 90
                 elif orientation == 8:
                     self.rotate = 270
-        except Exception, err:  # No exif orientation available
+        except Exception as err:  # No exif orientation available
             # TODO: log error
             pass
 
-    def __unicode__(self):
-        return u"Image: %s (%dx%dpx)" % (
+    def __str__(self):
+        return "Image: %s (%dx%dpx)" % (
             self.content.originalfilename,
             self.width, self.height)
 
@@ -536,7 +545,7 @@ class Image(models.Model):
             im = im.transpose(ImagePIL.ROTATE_90)
         im.thumbnail(size, ImagePIL.ANTIALIAS)
         # Save resized image to a temporary file
-        tmp = StringIO.StringIO()
+        tmp = StringIO()
         #tmp = tempfile.NamedTemporaryFile()
         im.save(tmp, "jpeg", quality=t[3])
         tmp.seek(0)
@@ -544,7 +553,7 @@ class Image(models.Model):
         tmp.close()
         postfix = "%s-%s-%sx%s" % t
         #filename = u"%09d-%s%s" % (self.id, self.uid, ext.lower())
-        filename = u"%09d-%s-%s.jpg" % (self.content.id, self.content.uid,
+        filename = "%09d-%s-%s.jpg" % (self.content.id, self.content.uid,
                                         postfix)
         thumbfield.save(filename, ContentFile(data))
         return True
@@ -602,6 +611,7 @@ class Image(models.Model):
         self.content.save()
 
 
+@python_2_unicode_compatible
 class Video(models.Model):
     """
     Dimensions (width, height), duration and bitrate of video media.
@@ -616,8 +626,8 @@ class Video(models.Model):
         storage=preview_storage, upload_to=upload_split_by_1000,
         editable=False)
 
-    def __unicode__(self):
-        return u"Video: %s" % self.content.originalfilename
+    def __str__(self):
+        return "Video: %s" % self.content.originalfilename
         #return u"Video: %s (%dx%dpx, %.2f sec)" % (
         #         self.content.originalfilename,
         #         self.width, self.height, self.duration)
@@ -635,7 +645,7 @@ class Video(models.Model):
             fd, tmp_name = tempfile.mkstemp()  # Remember to close fd!
             if do_video_thumbnail(self.content.file.path, tmp_name):
                 postfix = "%s-%s-%sx%s" % THUMBNAIL_PARAMETERS
-                filename = u"%09d-%s-%s.jpg" % (
+                filename = "%09d-%s-%s.jpg" % (
                     self.content.id, self.content.uid, postfix)
                 if os.path.isfile(tmp_name):
                     with open(tmp_name, "rb") as f:
@@ -679,7 +689,7 @@ class Videoinstance(models.Model):
         """
         self.mimetype = get_mimetype(filepath)
         #ext = self.mimetype.split('/')[1]
-        filename = u"%09d-%s.%s" % (self.id, self.content.uid, ext)
+        filename = "%09d-%s.%s" % (self.id, self.content.uid, ext)
         # print self.mimetype, filepath, filename
         with open(filepath, 'rb') as f:
             self.file.save(filename, File(f))
@@ -696,6 +706,7 @@ class Videoinstance(models.Model):
         self.framerate = data.get('framerate')
 
 
+@python_2_unicode_compatible
 class Audio(models.Model):
     """
     Duration of audio media.
@@ -708,9 +719,9 @@ class Audio(models.Model):
         self.duration = data.get('duration')
         self.bitrate = data.get('bitrate')
 
-    def __unicode__(self):
-        s = u"Audio: %s" % self.content.originalfilename
-        s += u" (%.2f sec)" % (self.duration if self.duration else -1.0)
+    def __str__(self):
+        s = "Audio: %s" % self.content.originalfilename
+        s += " (%.2f sec)" % (self.duration if self.duration else -1.0)
         return s
 
 
@@ -738,7 +749,7 @@ class Audioinstance(models.Model):
         """
         self.mimetype = get_mimetype(filepath)
         #ext = self.mimetype.split('/')[1]
-        filename = u"%09d-%s.%s" % (self.id, self.content.uid, ext)
+        filename = "%09d-%s.%s" % (self.id, self.content.uid, ext)
         # print self.mimetype, filepath, filename
         with open(filepath, 'rb') as f:
             self.file.save(filename, File(f))
@@ -820,7 +831,7 @@ class Mail(models.Model):
         self.sha1 = hashlib.sha1(filedata).hexdigest()
         self.save()  # Must save here to get self.id
         #root, ext = os.path.splitext(originalfilename)
-        filename = u"%09d-%s" % (self.id, host)
+        filename = "%09d-%s" % (self.id, host)
         self.file.save(filename, ContentFile(filedata))
         self.filesize = self.file.size
         cnt = Mail.objects.filter(md5=self.md5).filter(sha1=self.sha1).count()

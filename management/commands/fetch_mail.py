@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 import imaplib
 from optparse import make_option
 from django.conf import settings

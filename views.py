@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 
 from django.utils import six
 import os
-import StringIO
+import sys
+if sys.version_info > (3, 0):
+    from io import StringIO
+else:
+    from io import BytesIO as StringIO
+
 import json
 from PIL import Image as ImagePIL
 from PIL import ImageDraw, ImageFont
@@ -361,7 +367,7 @@ def instance(request, uid, width, height, action, ext):
             im = im.crop(crop)
         else:
             im.thumbnail(size, ImagePIL.ANTIALIAS)
-        tmp = StringIO.StringIO()
+        tmp = StringIO()
         im.save(tmp, "jpeg", quality=90)
         data = tmp.getvalue()
         tmp.close()
@@ -451,7 +457,7 @@ def view(request, uid, width, height, action, ext):
     else:
         im.thumbnail(size, ImagePIL.ANTIALIAS)
     response = HttpResponse()
-    tmp = StringIO.StringIO()
+    tmp = StringIO()
     if thumb_format == "png":
         im.save(tmp, thumb_format)
         response["Content-Type"] = "image/png"

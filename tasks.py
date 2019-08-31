@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 from celery.registry import tasks
 from celery.task import Task 
 from celery import task
