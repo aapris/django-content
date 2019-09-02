@@ -1,0 +1,3 @@
+exifread
+python-magic
+iptcinfo3
