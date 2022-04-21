@@ -1,48 +1,28 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
+"""
+Read as much metadata from a file as possible. Mainly usable with
+media files (image, video, audio files), but can do also video and pdf
+thumbnail.
+"""
+import datetime
 import hashlib
+import io
+import json
+import logging
 import os
-import sys
 import re
 import subprocess
-import json
-import datetime
 import tempfile
-import logging
-import warnings
-import functools
-from dateutil import parser
+from typing import Tuple
+
 import magic
-from . import exifparser
-from PIL import Image as ImagePIL
+from PIL import Image
+from dateutil import parser
+from iptcinfo3 import IPTCInfo
 
-if sys.version_info > (3, 0):
-    from iptcinfo3 import IPTCInfo
-else:
-    from .iptcinfo import IPTCInfo
-
-logging.getLogger().addHandler(logging.StreamHandler())
-logger = logging.getLogger('content')
+from content.exifparser import read_exif, parse_datetime, parse_gps
 
 
-def deprecated(func):
-    """
-    This is a decorator which can be used to mark functions
-    as deprecated. It will result in a warning being emitted
-    when the function is used.
-    """
-
-    @functools.wraps(func)
-    def new_func(*args, **kwargs):
-        warnings.warn_explicit(
-            "Call to deprecated function {}.".format(func.__name__),
-            category=DeprecationWarning,
-            filename=func.__code__.co_filename,
-            lineno=func.__code__.co_firstlineno + 1
-        )
-        return func(*args, **kwargs)
-    return new_func
+# from .exifparser import read_exif, parse_datetime, parse_gps
 
 
 class FFProbe:
@@ -50,24 +30,24 @@ class FFProbe:
     Wrapper for the ffprobe command
     """
 
-    data = None
-    ffprobe = 'ffprobe'  # TODO: try to find full path of ffprobe
-
     audio_mimemap = {
-        'amr': 'audio/amr',
-        '3gp': 'audio/3gpp',
-        '3ga': 'audio/3gpp',
-        'm4a': 'audio/mp4a-latm',  # 'audio/mp4',
-        'ogg': 'audio/ogg',
-        'mp3': 'audio/mpeg',
+        "amr": "audio/amr",
+        "3gp": "audio/3gpp",
+        "3ga": "audio/3gpp",
+        "m4a": "audio/mp4a-latm",  # 'audio/mp4',
+        "ogg": "audio/ogg",
+        "mp3": "audio/mpeg",
     }
 
     video_mimemap = {
-        '3gp': 'video/3gpp',
+        "3gp": "video/3gpp",
     }
+
+    ffprobe = "ffprobe"  # TODO: try to find full path of ffprobe
 
     def __init__(self, path):
         self.path = path
+        self.data = None
         self.get_streams_dict()
 
     def get_streams_dict(self):
@@ -80,34 +60,25 @@ class FFProbe:
         because the file is not parsable by ffprobe/ffmpeg), returns
         an empty dictionary
         """
-
         command = self._ffprobe_command(self.path)
+        logging.debug(" ".join(command))
         try:
-            output = subprocess.check_output(command)
+            output = subprocess.check_output(command, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as err:  # Probably file not found
-            msg = 'Subprocess error: "{}". Command: "{}".'.format(
-                err, ' '.join(command))
-            # print('File exists: {}'.format(os.path.isfile(command[-1])))
-            logger.warning(msg)
-            raise
+            # TODO: log file and error here.
+            logging.error("Subprocess error: {}".format(err, " ".join(command)))
+            output = "{}"  # empty json object
+            # raise
         except OSError as err:  # Probably executable was not found
-            msg = 'OSError error: "{}". ' \
-                  'Probably ffprobe executable not found. ' \
-                  'Command: "{}".'.format(
-                err, ' '.join(command))
-            logger.warn(msg)
+            # TODO: log file and error here.
+            logging.error("OSError: {}".format(err, " ".join(command)))
             raise
-
         self.data = json.loads(output)
+        # print(json.dumps(self.data, indent=1))
         return True
 
-    def _ffprobe_command(self, url):
-        return [self.ffprobe,
-                '-v', 'quiet',
-                '-print_format', 'json',
-                '-show_streams',
-                '-show_format',
-                '%s' % url]
+    def _ffprobe_command(self, url: str) -> list:
+        return [self.ffprobe, "-v", "quiet", "-print_format", "json", "-show_streams", "-show_format", url]
 
     def has_video_stream(self):
         """
@@ -115,18 +86,16 @@ class FFProbe:
         at path is a valid video file.
         """
         # If there are no streams available, then the file is not a video
-        if 'streams' not in self.data:
+        if "streams" not in self.data:
             return False
         # Check each stream, looking for a video
-        for streamInfo in self.data['streams']:
+        for streamInfo in self.data["streams"]:
             # Check if the codec is a video
-            if streamInfo['codec_type'] == 'video':
+            codec_type = streamInfo["codec_type"]
+            if codec_type == "video":
                 # Images and other binaries are sometimes parsed as videos,
                 # so also check that there's at least 1 second of video
-                duration = streamInfo.get('duration')
-                if duration is None:
-                    if 'format' in self.data:
-                        duration = self.data['format'].get('duration', 0.0)
+                duration = streamInfo.get("duration", 0.0)
                 if float(duration) > 1.0:
                     return True
         # If we can't find any video streams, the file is not a video
@@ -138,12 +107,13 @@ class FFProbe:
         at path is a valid audio file.
         """
         # If there are no streams available, then the file is not a video
-        if 'streams' not in self.data:
+        if "streams" not in self.data:
             return False
         # Check each stream, looking for a video
-        for streamInfo in self.data['streams']:
+        for streamInfo in self.data["streams"]:
             # Check if the codec is a video
-            if streamInfo['codec_type'] == 'audio':
+            codec_type = streamInfo["codec_type"]
+            if codec_type == "audio":
                 return True
         # If we can't find any audio streams, the file is not a audio
         return False
@@ -158,354 +128,315 @@ class FFProbe:
         """
         Return True if file has an audio stream, but not video stream.
         """
-        if (self.has_audio_stream() is True and
-                self.has_video_stream() is False):
+        if self.has_audio_stream() is True and self.has_video_stream() is False:
             return True
         else:
             return False
 
-    def get_latlon(self, info):
-        # "+60.1878+025.0339/"
-        try:
-            if 'location' in self.data['format']['tags']:
-                loc = self.data['format']['tags']['location']
-                m = re.match(r'^(?P<lat>[\-\+][\d]+\.[\d]+)(?P<lon>[\-\+][\d]+\.[\d]+)', loc)
-                if m:
-                    info['lat'] = float(m.group('lat'))
-                    info['lon'] = float(m.group('lon'))
-        except KeyError:
-            pass
+    def get_gps(self, info: dict):
+        """
+        Add gps data (lat, lon and optionally altitude) to info.
 
-    def get_creation_time(self, info):
+        Android OnePlus 9:
+        "location": "+60.2163+024.9808/"
+        iPhone 12 Pro Max:
+        "com.apple.quicktime.location.ISO6709": "+60.1997+024.9473+016.943/",
+        """
+        loc = None
+        gps = {}
+        if "location" in self.data["format"]["tags"]:
+            loc = self.data["format"]["tags"]["location"]
+        elif "com.apple.quicktime.location.ISO6709" in self.data["format"]["tags"]:
+            loc = self.data["format"]["tags"]["com.apple.quicktime.location.ISO6709"]
+        # loc = "+60.1997+024.9473/"
+        if loc is not None:
+            m = re.match(r"^(?P<lat>[\-+]\d+\.\d+)(?P<lon>[\-+]\d+\.\d+)(?P<alt>[\-+]\d+\.\d+)?", loc)
+            if m:
+                print(m)
+                gps["lat"] = float(m.group("lat"))
+                gps["lon"] = float(m.group("lon"))
+                if m.group("alt"):
+                    gps["altitude"] = float(m.group("alt"))
+        info["gps"] = gps
+
+    def get_creation_time(self, info: dict):
         try:
-            if 'creation_time' in self.data['format']['tags']:
-                ts = self.data['format']['tags']['creation_time']
-                info['creation_time'] = parser.parse(ts)
+            if "creation_time" in self.data["format"]["tags"]:
+                ts = self.data["format"]["tags"]["creation_time"]
+                info["creation_time"] = parser.parse(ts)
         except KeyError:
             pass
 
     def get_duration(self, stream, info):
-        if 'duration' in stream:
-            info['duration'] = float(stream.get('duration', 0.0))
+        if "duration" in stream:
+            info["duration"] = float(stream.get("duration", 0.0))
 
     def get_videoinfo(self):
         info = {}
-        if 'streams' not in self.data:
+        if "streams" not in self.data:
             return info
-        for stream in self.data['streams']:
+        for stream in self.data["streams"]:
             # Check if the codec is a video
-            if stream['codec_type'] == 'video':
+            if stream["codec_type"] == "video":
                 self.get_duration(stream, info)
-                info['width'] = int(stream.get('width', 0))
-                info['height'] = int(stream.get('height', 0))
-                # file --mime --brief thinks .ts files (MPEG transport stream)
-                # are application/octet-stream, but ffprobe knows it better
-                # https://en.wikipedia.org/wiki/MPEG_transport_stream
-                if 'format' in self.data:
-                    if self.data['format'].get('format_name') == 'mpegts':
-                        info['mimetype'] = 'video/mp2t'
-                    elif self.data['format'].get('format_name') == 'flv':
-                        info['mimetype'] = 'video/flv'
+                info["width"] = int(stream.get("width", 0))
+                info["height"] = int(stream.get("height", 0))
                 break
-        if 'bit_rate' in self.data['format']:
-            info['bitrate'] = int(self.data['format']['bit_rate'])
+        if "bit_rate" in self.data["format"]:
+            info["bitrate"] = int(self.data["format"]["bit_rate"])
         # Sometimes duration is not in video stream but in format
-        if 'duration' not in info and 'format' in self.data:
-            self.get_duration(self.data['format'], info)
-        self.get_latlon(info)
+        if "duration" not in info and "format" in self.data:
+            self.get_duration(self.data["format"], info)
+        self.get_gps(info)
         self.get_creation_time(info)
         return info
 
     def get_audioinfo(self):
         info = {}
-        if 'streams' not in self.data:
+        if "streams" not in self.data:
             return info
-        for stream in self.data['streams']:
+        for stream in self.data["streams"]:
             # Check if the codec is a video
-            if stream['codec_type'] == 'audio':
+            if stream["codec_type"] == "audio":
                 self.get_duration(stream, info)
                 break
-        if 'bit_rate' in self.data['format']:
-            info['bitrate'] = int(self.data['format']['bit_rate'])
-        ext = os.path.splitext(self.path)[1].lstrip('.').lower()
+        if "bit_rate" in self.data["format"]:
+            info["bitrate"] = int(self.data["format"]["bit_rate"])
+        ext = os.path.splitext(self.path)[1].lstrip(".").lower()
         if ext in list(self.audio_mimemap.keys()):
-            info['mimetype'] = self.audio_mimemap[ext]
+            info["mimetype"] = self.audio_mimemap[ext]
 
-        # print ext, info
-        self.get_latlon(info)
+        self.get_gps(info)
         self.get_creation_time(info)
         return info
 
 
-def hashfile(filepath):
+def hashfile(filepath: str) -> Tuple[str, str]:
     """
     Return md5 and sha1 hashes of file in hex format
     """
-    blocksize = 65536
+    block_size = 65536
     md5 = hashlib.md5()
     sha1 = hashlib.sha1()
-    with open(filepath, 'rb') as f:
-        buf = f.read(blocksize)
+    with open(filepath, "rb") as f:
+        buf = f.read(block_size)
         while len(buf) > 0:
             md5.update(buf)
             sha1.update(buf)
-            buf = f.read(blocksize)
+            buf = f.read(block_size)
     return md5.hexdigest(), sha1.hexdigest()
 
 
-def guess_encoding(str_):
+def guess_encoding(b: bytes) -> str:
     """
-    Try to guess is the str utf8, mac-roman or latin-1 encoded.
+    NOTE: this is from Python 2.x times and outdated. Kept here for now, though.
+    Try to guess is the text utf8, mac-roman or latin-1 encoded.
     http://en.wikipedia.org/wiki/Mac_OS_Roman
     http://en.wikipedia.org/wiki/Latin1
     Code values 00–1F, 7F–9F are not assigned to characters by ISO/IEC 8859-1.
-    http://stackoverflow.com/questions/4198804/how-to-reliably-guess-the-encoding-between-macroman-cp1252-latin1-utf-8-and-a
+    http://stackoverflow.com/questions/4198804
     """
     try:
-        str(str_, 'utf8')
+        b.decode("utf8")
         return "utf8"
     except UnicodeDecodeError:
-        if re.compile(r'[\x00–\x1f\x7f-\x9f]').findall(str_):
+        if re.compile(r"[\x00–\x1f\x7f-\x9f]").findall(b):
             return "mac-roman"
         else:
             return "latin-1"
 
 
-def get_mimetype(filepath):
+def get_mimetype(filepath: str) -> str:
     """
-    Return mimetype of given file.
-    Use python-magic if it is found, otherwise try
-    `file` command found in most unix/linux systems.
-    File for windows:
-    http://gnuwin32.sourceforge.net/packages/file.htm
-
-    TODO:
-    if ext in VIDEO_EXTENSIONS:
-        try to find video and audio stream with ffprobe
-    elif ext in AUDIO_EXTENSIONS:
-        try to find audio stream with ffprobe
-        if found: return arm -> audio/arm
+    Return mimetype of given file by reading first bytes of it
+    and using python-magic.
     """
-    if isinstance(filepath, str):
-        filepath = filepath.decode('utf-8')
-    return magic.from_file(filepath, mime=True)
+    with open(filepath, "rb") as f:
+        mimetype = magic.from_buffer(f.read(4096), mime=True)
+    return mimetype
 
 
-def get_imageinfo(filepath):
+def get_imageinfo(filepath: str) -> dict:
     """
     Return EXIF and IPTC information found from image file in a dictionary.
     """
     info = {}
-    info['exif'] = exif = exifparser.read_exif(filepath)
-    info.update(exifparser.parse_datetime(exif, 'EXIF DateTimeOriginal'))
-    info['gps'] = gps = exifparser.parse_gps(exif)
-    if 'lat' in gps:  # Backwards compatibility
-        info['lat'], info['lon'] = gps['lat'], gps['lon']
-    info['iptc'] = iptc = IPTCInfo(filepath, force=True)
-    if iptc:  # TODO: this to own function
-        if iptc.data['caption/abstract']:
-            info['caption'] = iptc.data['caption/abstract']
-        if iptc.data['object name']:
-            info['title'] = iptc.data['object name']
-        if iptc.data['keywords']:
-            kw_str = ','.join(iptc.data['keywords'])
-            info['keywords'] = kw_str
-            info['tags'] = iptc.data['keywords']
+    info["exif"] = exif = read_exif(filepath)
+    info["gps"] = gps = parse_gps(exif)
+    info.update(parse_datetime(exif, tag_name="EXIF DateTimeOriginal", gps=gps))
+    if "lat" in gps:  # Backwards compatibility
+        info["lat"], info["lon"] = gps["lat"], gps["lon"]
+    info["iptc"] = iptc = IPTCInfo(filepath, force=True)
+    try:
+        if iptc.data["caption/abstract"]:
+            info["caption"] = iptc.data["caption/abstract"]
+        if iptc.data["object name"]:
+            info["title"] = iptc.data["object name"]
+        if iptc.data["keywords"]:
+            kw_str = ",".join(iptc.data["keywords"])
+            info["keywords"] = kw_str
+            info["tags"] = iptc.data["keywords"]
         for key in info:  # Convert all str values to unicode
             if isinstance(info[key], str):
                 info[key] = str(info[key], guess_encoding(info[key]))
-    with open(str(filepath), 'rb') as f:
-        im = ImagePIL.open(f)
-        info['width'], info['height'] = im.size
+    except AttributeError:
+        pass
+    with open(str(filepath), "rb") as f:
+        im = Image.open(f)
+        info["width"], info["height"] = im.size
         del im
     return info
 
 
-def fileinfo(filepath):
+def fileinfo(filepath: str) -> dict:
     """
-    Retrieves file metadata.
-    filemtime, filesize and mimetypa are always present.
+    Return some information from file found in 'filepath'.
+    filemtime, filesize and mimetype are always present.
     Image, Video and audio files may have also width, height, duration,
     creation_time, lat, lon (gps coordinates) etc. info.
     Images may have also some exif and IPTC field parsed.
-
-    Args:
-        filepath (str):
-
-    Returns:
-        A dict containing some information from file found in `filepath`.
-        Example:
-        {
-            'mimetype': 'image/jpeg',
-            'width': 4032,
-            'height': 3024,
-            'lat': 65.01416666666667,
-            'lon': 25.471327777777777,
-            'iptc': <iptcinfo.IPTCInfo object at 0x10fb41910>,
-            'filesize': 2229010,
-            'filemtime': datetime.datetime(2015, 12, 15, 14, 33, 46),
-            'creation_time': datetime.datetime(2015, 12, 15, 14, 33, 46),
-            'gps': {
-                'gpstime': datetime.datetime(2015, 12, 15, 12, 33, 45,
-                                             tzinfo=<UTC>),
-                'direction': 289.50522648083626,
-                'lat': 65.01416666666667,
-                'direction_ref': u'T',
-                'altitude': 20.712585034013607,
-                'lon': 25.471327777777777
-            }
-        }
-
     """
     info = {}
     # Get quickly mimetype first, because we don't want to run FFProbe
     # for e.g. xml files
-    with open(filepath, 'rb') as f:
-        mimetype = magic.from_buffer(f.read(4096), mime=True)
-    # Do not ffprobe, if mimetype is some of these:
-    # no_ffprobe = ['application/pdf', 'application/xml']
-    if mimetype.startswith(('video', 'audio')) or \
-                    mimetype == 'application/octet-stream':
+    mimetype = get_mimetype(filepath)
+    if mimetype.startswith(("video/", "audio/")):
         ffp = FFProbe(filepath)
         if ffp.is_video():
             info = ffp.get_videoinfo()
         elif ffp.is_audio():
             info = ffp.get_audioinfo()
             # Fix mimetype if it starts with video (e.g. video/3gpp)
-            if 'mimetype' not in info and mimetype.startswith('video'):
-                info['mimetype'] = mimetype.replace('video', 'audio')
-    else:
+            if "mimetype" not in info and mimetype.startswith("video"):
+                info["mimetype"] = mimetype.replace("video", "audio")
+    elif mimetype.startswith(("image/",)) or mimetype in ("application/pdf",):
         try:
             info = get_imageinfo(filepath)
-            if 'exif' in info:
-                del info['exif']
+            if "exif" in info:
+                del info["exif"]
         except IOError:  # is not image
             pass
-    info['filemtime'] = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
-    info['filesize'] = os.path.getsize(filepath)
-    if 'mimetype' not in info:  # FFProbe() did not detect file
-        info['mimetype'] = mimetype
+    else:
+        pass
+    info["filemtime"] = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
+    info["filesize"] = os.path.getsize(filepath)
+    if "mimetype" not in info:  # FFProbe() did not detect file
+        info["mimetype"] = mimetype
     return info
 
 
-def create_videoinstance(filepath, params=[], outfile=None, ext='webm'):
-    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
+def run_ffmpeg(filepath: str, params: list, outfile: str = None, ext: str = None) -> Tuple[str, str, bytes]:
+    """
+    Run ffmpeg command for `filepath`, using `params`.
+    Return output file name, the actual command which was run and command's stdout output.
+    Commands stderr is piped to devnull.
+    """
     if outfile is None:
-        outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
-    if not params:
-        params = ['-c:a', 'libvorbis', '-c:v', 'libvpx', '-ac', '2', '-b:v', '512k', '-vf', 'scale=320:-1']
+        outfile = "{}.{}".format(tempfile.NamedTemporaryFile(delete=False).name, ext)
+    ffmpeg_cmd = ["ffmpeg", "-i", filepath]
     full_cmd = ffmpeg_cmd + params + [outfile]
-    cmd_str = ' '.join(full_cmd)
-    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT)
-    out = p.stdout.read()
-    # print "OUT", out
-    return outfile, cmd_str
+    cmd_str = " ".join(full_cmd)
+    logging.debug(cmd_str)
+    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    output = p.stdout.read()
+    return outfile, cmd_str, output
 
 
-def create_audioinstance(filepath, params=[], outfile=None, ext='mp3'):
-    # ffmpeg -y -i anni.mp4 -acodec libvorbis -ac 2 -ab 96k -ar 22050 -b 345k -s 320x240 output.webm
-    ffmpeg_cmd = ['ffmpeg', '-i', '%s' % filepath]
-    if outfile is None:
-        outfile = tempfile.NamedTemporaryFile(delete=False).name + '.' + ext
+def create_videoinstance(filepath: str, params: list = (), outfile=None, ext="webm") -> Tuple[str, str, bytes]:
     if not params:
-        params = ['-acodec', 'libmp3lame', '-ab', '64k']
-    full_cmd = ffmpeg_cmd + params + [outfile]
-    cmd_str = ' '.join(full_cmd)
-    p = subprocess.Popen(full_cmd, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT)
-    # out = p.stdout.read()
-    # print out
-    return outfile, cmd_str
+        params = ["-acodec", "libvorbis", "-ac", "2", "-ab", "96k", "-ar", "22050", "-b", "345k", "-s", "320x240"]
+    return run_ffmpeg(filepath, params, outfile, ext)
 
 
-def do_video_thumbnail(src, target, sec=1.0):
+def create_audioinstance(filepath: str, params=(), outfile=None, ext="mp3") -> Tuple[str, str, bytes]:
+    if not params:
+        params = ["-acodec", "libmp3lame", "-ab", "64k"]
+    return run_ffmpeg(filepath, params, outfile, ext)
+
+
+def do_video_thumbnail(src: str, target: str, sec=1.0):
     """
     Create a thumbnail from video file 'src' and save it to 'target'.
     Return True if subprocess was called with error code 0.
     TODO: make -ss configurable, now it is hardcoded 1 seconds.
 
-    subprocess.check_call(
-      ['ffmpeg', '-ss', '1', '-i', 'test_content/05012009044.mp4',
-       '-vframes', '1', '-f', 'mjpeg', '-s', '320x240', 'test-1.jpg'])
-
-    ffmpeg -ss 1 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-1.jpg
-    ffmpeg -ss 2 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-2.jpg
-    ffmpeg -ss 3 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-3.jpg
+    subprocess.check_call([
+        'ffmpeg', '-ss', '1', '-i', 'test_content/05012009044.mp4', '-vframes',
+        '1', '-f', 'mjpeg', '-s', '320x240', 'test-1.jpg'])
+        ffmpeg -ss 1 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-1.jpg
+        ffmpeg -ss 2 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-2.jpg
+        ffmpeg -ss 3 -i test.mp4 -vframes 1 -f mjpeg -s 320x240 test-3.jpg
     """
     try:
-        # FIXME: this fails to create thumbnail if the seconds
-        # value after -ss exeeds clip length
-        command = [
-            'ffmpeg', '-y', '-ss', str(sec), '-i', src,
-            '-vframes', '1', '-f', 'mjpeg', target
-        ]
-        subprocess.check_call(command)
+        # FIXME: this fails to create thumbnail if the seconds value after -ss exeeds clip length
+        # NOTE: keep -ss before -i
+        ffmpeg_cmd = ["ffmpeg", "-y", "-ss", str(sec), "-i", src, "-vframes", "1", "-f", "mjpeg", target]
+        logging.debug(ffmpeg_cmd)
+        subprocess.check_call(ffmpeg_cmd, stderr=subprocess.DEVNULL)
         if os.path.isfile(target):  # TODO: check that size > 0 ?
             return True
         else:
             return False
-    except subprocess.CalledProcessError as err:
-        msg = 'Subprocess error in do_video_thumbnail: "{}". ' \
-              'Command: "{}".'.format(err, ' '.join(command))
-        logger.warning(msg)
+    except subprocess.CalledProcessError:
+        # TODO: log file and error here.
         return False
 
 
-def do_pdf_thumbnail(src, target):
+def do_pdf_thumbnail(src: str, target: str) -> bool:
     """
     Create a thumbnail from a PDF file 'src' and save it to 'target'.
     Return True if subprocess returns with error code 0 and target exits.
     """
-    CONVERT = 'convert'
+    convert = "convert"
     # convert -flatten  -geometry 1000x1000 foo.pdf[0] thumb.png
     try:
-        command = [CONVERT, '-flatten', '-geometry', '1000x1000',
-                   src+'[0]', target]
-        subprocess.check_call(command)
+        cmd = [convert, "-flatten", "-geometry", "1000x1000", src + "[0]", target]
+        logging.debug(cmd)
+        subprocess.check_call(cmd, stderr=subprocess.DEVNULL)
         # TODO: check also that target is really non-broken file
-        if os.path.isfile(target):
+        if os.path.isfile(target):  # TODO: check that size > 0 ?
             return True
         else:
             return False
-    except subprocess.CalledProcessError as err:
-        msg = 'Subprocess error in do_pdf_thumbnail: "{}". ' \
-              'Command: "{}".'.format(err, ' '.join(command))
-        logger.warning(msg)
+    except subprocess.CalledProcessError:
+        # TODO: log file and error here.
         return False
 
 
-def create_thumbnail(filepath, t):
+def create_thumbnail(filepath: str, t: list) -> io.BytesIO:
+    """
+    t = [width, height, ?, jpeg quality, rotate degrees]
+    """
     try:
-        im = ImagePIL.open(filepath)
-    except IOError:  # ImagePIL file is corrupted
-        print("ERROR in image file:", filepath)
+        im = Image.open(filepath)
+    except IOError:  # Image file is corrupted
+        logging.warning(f"ERROR in image file: {filepath}")
         return False
-    if im.mode not in ('L', 'RGB'):
-        im = im.convert('RGB')
+    if im.mode not in ("L", "RGB"):
+        im = im.convert("RGB")
     size = (t[0], t[1])
     rotatemap = {
-        90: ImagePIL.ROTATE_270,
-       180: ImagePIL.ROTATE_180,
-       270: ImagePIL.ROTATE_90,
+        90: Image.Transpose.ROTATE_270,
+        180: Image.Transpose.ROTATE_180,
+        270: Image.Transpose.ROTATE_90,
     }
     if t[4] != 0:
         im = im.transpose(rotatemap[t[4]])
-    im.thumbnail(size, ImagePIL.ANTIALIAS)
-    # TODO: use imagemagick and convert
-    # Save resized image to a temporary file
+
+    im.thumbnail(size, Image.Resampling.LANCZOS)
+    # Save resized image to a temporary buffer
     # NOTE: the size will be increased if original is smaller than size
-    tmp = tempfile.NamedTemporaryFile() # FIXME: use StringIO
+    tmp = io.BytesIO()
     im.save(tmp, "jpeg", quality=t[3])
     tmp.seek(0)
     return tmp
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+    from pprint import pprint
+
     for path in sys.argv[1:]:
-        print(path, fileinfo(path))
-    # ffp = FFProbe(path)
-    # print path, ffp.is_video(), ffp.is_audio()
-    # if ffp.is_video(): print ffp.get_videoinfo()
-    # if ffp.is_audio(): print ffp.get_audioinfo()
+        print(path)
+        pprint(fileinfo(path))
+        create_thumbnail(path, (400, 400, None, 80, 0))

@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-
 """
 Content's admin definitions.
 
@@ -21,23 +18,28 @@ from .models import Mail
 
 
 class GroupAdmin(admin.ModelAdmin):
-    search_fields = ('name', )
-    list_display = ('name', )
-    ordering = ('name', )
+    search_fields = ("name",)
+    list_display = ("name",)
+    ordering = ("name",)
     prepopulated_fields = {"slug": ("name",)}
+
 
 admin.site.register(Group, GroupAdmin)
 
+
 class ContentAdmin(admin.ModelAdmin):
-    search_fields = ('title', 'caption', 'mimetype', 'caption')
-    list_display = ('title',  'caption', 'mimetype', 'filesize', 'created', 'updated')
-    ordering = ('title',)
+    search_fields = ("title", "caption", "mimetype", )
+    list_display = ("mimetype", "title", "caption", "filesize", "created", "updated")
+    ordering = ("-created",)
+
 
 admin.site.register(Content, ContentAdmin)
 
+
 class MailAdmin(admin.ModelAdmin):
-    search_fields = ('id', 'status',)
-    list_display = ('id', 'status',  'filesize', 'created',)
-    ordering = ('created',)
+    search_fields = ("id", "status")
+    list_display = ("id", "status", "filesize", "created")
+    ordering = ("-created",)
+
 
 admin.site.register(Mail, MailAdmin)
