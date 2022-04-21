@@ -25,7 +25,5 @@ before content app can work:
 * ffmpeg & ffprobe for converting video and audio files and creating thumbnails 
 * libmagic to determine file types
 * libheif to open HEIF image files
-* rust compiler, to compile cykooz.heif module
 * python3-dev
 * gdal-bin, python3-gdal
-

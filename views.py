@@ -36,14 +36,15 @@ class ContentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         try:
             f = request.data.pop("file")[0]
         except Exception as err:
+            logging.warning(f"Failed to get 'file' from request: {err}")
             raise
-        serializer = ContentSerializer(data=request.data)
+        serializer = ContentSerializer(data=request.data, request=request)
         serializer.is_valid(raise_exception=True)
         c: Content = serializer.save()
         c.set_file(f.name, f)
         c.set_fileinfo()
         c.generate_thumbnail()
-        return Response({"received data": request.data}, status=201)
+        return Response(serializer.data, status=201)
 
 
 def _get_placeholder_instance(c, text=None):
@@ -167,3 +168,20 @@ def original(request, uid: str, filename: str) -> FileResponse:
     disp = "attachment" if "attachment" in request.GET else "inline"
     response["Content-Disposition"] = f'{disp}; filename="{c.originalfilename}"'
     return response
+
+
+def instance(request, uid: str, extension: str) -> FileResponse:
+    """
+    Return one of video or audio instances.
+    """
+    try:
+        c = Content.objects.get(uid=uid)
+    except Content.DoesNotExist:
+        raise Http404
+    instances = c.videoinstances.filter(extension=extension)
+    if instances:
+        response = FileResponse(open(instances[0].file.path, "rb"))
+        response["Content-Type"] = instances[0].mimetype
+        return response
+    else:
+        raise Http404

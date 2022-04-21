@@ -1,12 +1,26 @@
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
-from content.models import Content
+from content.models import Content, Videoinstance
+
+
+class VideoinstanceSerializer(serializers.HyperlinkedModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        request = self.context.get("request")
+        url = reverse("instance", kwargs={"uid": obj.content.uid, "extension": obj.extension}, request=request)
+        return url
+
+    class Meta:
+        model = Videoinstance
+        fields = ["url", "mimetype", "filesize", "duration", "bitrate", "width", "height", "framerate", "created"]
 
 
 class ContentSerializer(serializers.HyperlinkedModelSerializer):
     original_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
+    videoinstances = VideoinstanceSerializer(many=True, read_only=True)
 
     def get_original_url(self, obj):
         request = self.context.get("request")
@@ -29,11 +43,12 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
         model = Content
         fields = [
             "uid",
-            "original_url",
-            "preview_url",
             "title",
             "caption",
             "author",
+            "original_url",
+            "preview_url",
+            "videoinstances",
             "originalfilename",
             "filesize",
             "filetime",
