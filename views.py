@@ -38,7 +38,10 @@ class ContentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         except Exception as err:
             logging.warning(f"Failed to get 'file' from request: {err}")
             raise
-        serializer = ContentSerializer(data=request.data, request=request)
+        # Use get_serializer here, because ContentSerializer(data=request.data)
+        # doesn't contain self.context["request"] in all cases,
+        # e.g. when returning serializer.data in post
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         c: Content = serializer.save()
         c.set_file(f.name, f)
