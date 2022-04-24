@@ -45,6 +45,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
             webm_params = ["-acodec", "libvorbis", "-ac", "2", "-ab", "96k", "-ar", "22050", "-vf", scale]
             mp4_params = ["-vcodec", "libx264", "-preset", "fast", "-vprofile", "baseline", "-vsync", "2"]
             mp4_params += ["-ab", "64k", "-async", "1", "-f", "mp4", "-vf", scale, "-movflags", "faststart"]
+            mp4_params += ["-pix_fmt", "yuv420p"]
             params = (
                 ("webm", "video/webm", webm_params),
                 ("mp4", "video/mp4", mp4_params),
