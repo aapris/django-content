@@ -172,7 +172,7 @@ def original(request, uid: str, filename: str) -> FileResponse | Response:
         raise Http404
     try:
         response = FileResponse(open(c.file.path, "rb"))
-    except FileNotFoundError as err:
+    except (FileNotFoundError, ValueError) as err:
         # This is fatal file path configuration error or file is really not found
         logging.error(f"Original file for {c.uid} not found: {err}")
         return Response("Oops, requested file not found in the file system.", status=500)
