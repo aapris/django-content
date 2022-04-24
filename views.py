@@ -9,7 +9,9 @@ from PIL import ImageDraw, ImageFont
 from django.http import Http404, HttpResponse, FileResponse
 from rest_framework import mixins, viewsets
 from rest_framework import parsers
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
+
 # from rest_framework import permissions
 
 from content.models import Content
@@ -52,31 +54,32 @@ class ContentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
 def _get_placeholder_instance(c, text=None):
     imsize = (160, 80)
-    imfont = os.path.join('mestadb', 'Arial.ttf')
+    imfont = os.path.join("mestadb", "Arial.ttf")
     imfontsize = 22
     try:
-        font = ImageFont.truetype(imfont, imfontsize, encoding='unic')
+        font = ImageFont.truetype(imfont, imfontsize, encoding="unic")
     except IOError as err:
         logging.warning("Could not find font? %s" % str(err))
         font = ImageFont.load_default()
     imtext = c.mimetype if text is None else text
     if imtext:
-        imtext = imtext.replace('/', ' ').split(' ')
+        imtext = imtext.replace("/", " ").split(" ")
     else:
-        imtext = [u'Broken', u'file']
+        imtext = ["Broken", "file"]
     if len(imtext) == 1:
-        imtext.append('')
-    im = PIL.Image.new('RGBA', imsize, '#eeeeee')
+        imtext.append("")
+    im = PIL.Image.new("RGBA", imsize, "#eeeeee")
     draw = ImageDraw.Draw(im)
-    draw.text((5, 10), imtext[0], font=font, fill='#333333')
-    draw.text((5, 35), imtext[1], font=font, fill='#333333')
+    draw.text((5, 10), imtext[0], font=font, fill="#333333")
+    draw.text((5, 35), imtext[1], font=font, fill="#333333")
     del draw
     return im
 
 
+@api_view(("GET", "HEAD"))
 def preview(request, uid: str, width: int | str, height: int | str, action=None, ext=None):
     """
-    Return scaled JPEG/PNG instance of the Content, which has preview available
+    Return scaled JPEG/PNG instance of the Content, which has a preview available
     New size is determined from URL.
     action can be '-crop'
     """
@@ -158,7 +161,8 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
     return response
 
 
-def original(request, uid: str, filename: str) -> FileResponse:
+@api_view(("GET", "HEAD"))
+def original(request, uid: str, filename: str) -> FileResponse | Response:
     """
     Return original file.
     """
@@ -166,13 +170,21 @@ def original(request, uid: str, filename: str) -> FileResponse:
         c = Content.objects.get(uid=uid)
     except Content.DoesNotExist:
         raise Http404
-    response = FileResponse(open(c.file.path, "rb"))
+    try:
+        response = FileResponse(open(c.file.path, "rb"))
+    except FileNotFoundError as err:
+        # This is fatal file path configuration error or file is really not found
+        logging.error(f"Original file for {c.uid} not found: {err}")
+        return Response("Oops, requested file not found in the file system.", status=500)
     response["Content-Type"] = c.mimetype
     disp = "attachment" if "attachment" in request.GET else "inline"
     response["Content-Disposition"] = f'{disp}; filename="{c.originalfilename}"'
+    if c.filetime:
+        response["Last-Modified"] = c.filetime.strftime("%a, %d %b %Y %H:%M:%S %z")
     return response
 
 
+@api_view(("GET", "HEAD"))
 def instance(request, uid: str, extension: str) -> FileResponse:
     """
     Return one of video or audio instances.
