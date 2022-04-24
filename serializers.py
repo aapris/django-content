@@ -7,7 +7,7 @@ from content.models import Content, Videoinstance
 class VideoinstanceSerializer(serializers.HyperlinkedModelSerializer):
     url = serializers.SerializerMethodField()
     # Future compatibility, fields will be renamed in some future version
-    created_at = serializers.DateTimeField(source="created")
+    created_at = serializers.DateTimeField(source="created", read_only=True)
 
     def get_url(self, obj):
         request = self.context.get("request")
@@ -24,8 +24,8 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
     preview_url = serializers.SerializerMethodField()
     videoinstances = VideoinstanceSerializer(many=True, read_only=True)
     # Future compatibility, fields will be renamed in some future version
-    created_at = serializers.DateTimeField(source="created")
-    updated_at = serializers.DateTimeField(source="updated")
+    created_at = serializers.DateTimeField(source="created", read_only=True)
+    updated_at = serializers.DateTimeField(source="updated", read_only=True)
 
     def get_original_url(self, obj):
         request = self.context.get("request")
