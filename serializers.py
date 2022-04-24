@@ -32,7 +32,7 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
         if obj.preview:
             url = reverse(
                 "preview",
-                kwargs={"uid": obj.uid, "width": "%d", "height": "%d", "action": "", "ext": "jpg"},
+                kwargs={"uid": obj.uid, "width": "W", "height": "H", "action": "", "ext": "jpg"},
                 request=request,
             )
         else:

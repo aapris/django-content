@@ -115,9 +115,9 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
         logging.warning(msg)
         im = _get_placeholder_instance(content, text="Missing thumbnail")
     # If we got here, we should have some kind of Image object.
-    # Width and height may be %d if the client uses preview_uri literally
+    # Width and height may be W/H if the client uses preview_uri literally
     # (it should replace them with integer).
-    if width in ["%d", "%(width)d"] and height in ["%d", "%(height)d"]:
+    if width in ["W", "%d", "%(width)d"] and height in ["H", "%d", "%(height)d"]:
         size = 640, 480
     else:
         size = int(width), int(height)
