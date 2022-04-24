@@ -6,6 +6,8 @@ from content.models import Content, Videoinstance
 
 class VideoinstanceSerializer(serializers.HyperlinkedModelSerializer):
     url = serializers.SerializerMethodField()
+    # Future compatibility, fields will be renamed in some future version
+    created_at = serializers.DateTimeField(source="created")
 
     def get_url(self, obj):
         request = self.context.get("request")
@@ -14,13 +16,16 @@ class VideoinstanceSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Videoinstance
-        fields = ["url", "mimetype", "filesize", "duration", "bitrate", "width", "height", "framerate", "created"]
+        fields = ["url", "mimetype", "filesize", "duration", "bitrate", "width", "height", "framerate", "created_at"]
 
 
 class ContentSerializer(serializers.HyperlinkedModelSerializer):
     original_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
     videoinstances = VideoinstanceSerializer(many=True, read_only=True)
+    # Future compatibility, fields will be renamed in some future version
+    created_at = serializers.DateTimeField(source="created")
+    updated_at = serializers.DateTimeField(source="updated")
 
     def get_original_url(self, obj):
         request = self.context.get("request")
@@ -55,8 +60,8 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
             "sha1",
             "point",
             "mimetype",
-            "created",
-            "updated",
+            "created_at",
+            "updated_at",
         ]
 
     def create(self, validated_data):
