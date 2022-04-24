@@ -9,7 +9,9 @@ from PIL import ImageDraw, ImageFont
 from django.http import Http404, HttpResponse, FileResponse
 from rest_framework import mixins, viewsets
 from rest_framework import parsers
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
+
 # from rest_framework import permissions
 
 from content.models import Content
@@ -36,43 +38,48 @@ class ContentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         try:
             f = request.data.pop("file")[0]
         except Exception as err:
+            logging.warning(f"Failed to get 'file' from request: {err}")
             raise
-        serializer = ContentSerializer(data=request.data)
+        # Use get_serializer here, because ContentSerializer(data=request.data)
+        # doesn't contain self.context["request"] in all cases,
+        # e.g. when returning serializer.data in post
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         c: Content = serializer.save()
         c.set_file(f.name, f)
         c.set_fileinfo()
         c.generate_thumbnail()
-        return Response({"received data": request.data}, status=201)
+        return Response(serializer.data, status=201)
 
 
 def _get_placeholder_instance(c, text=None):
     imsize = (160, 80)
-    imfont = os.path.join('mestadb', 'Arial.ttf')
+    imfont = os.path.join("mestadb", "Arial.ttf")
     imfontsize = 22
     try:
-        font = ImageFont.truetype(imfont, imfontsize, encoding='unic')
+        font = ImageFont.truetype(imfont, imfontsize, encoding="unic")
     except IOError as err:
         logging.warning("Could not find font? %s" % str(err))
         font = ImageFont.load_default()
     imtext = c.mimetype if text is None else text
     if imtext:
-        imtext = imtext.replace('/', ' ').split(' ')
+        imtext = imtext.replace("/", " ").split(" ")
     else:
-        imtext = [u'Broken', u'file']
+        imtext = ["Broken", "file"]
     if len(imtext) == 1:
-        imtext.append('')
-    im = PIL.Image.new('RGBA', imsize, '#eeeeee')
+        imtext.append("")
+    im = PIL.Image.new("RGBA", imsize, "#eeeeee")
     draw = ImageDraw.Draw(im)
-    draw.text((5, 10), imtext[0], font=font, fill='#333333')
-    draw.text((5, 35), imtext[1], font=font, fill='#333333')
+    draw.text((5, 10), imtext[0], font=font, fill="#333333")
+    draw.text((5, 35), imtext[1], font=font, fill="#333333")
     del draw
     return im
 
 
+@api_view(("GET", "HEAD"))
 def preview(request, uid: str, width: int | str, height: int | str, action=None, ext=None):
     """
-    Return scaled JPEG/PNG instance of the Content, which has preview available
+    Return scaled JPEG/PNG instance of the Content, which has a preview available
     New size is determined from URL.
     action can be '-crop'
     """
@@ -111,9 +118,9 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
         logging.warning(msg)
         im = _get_placeholder_instance(content, text="Missing thumbnail")
     # If we got here, we should have some kind of Image object.
-    # Width and height may be %d if the client uses preview_uri literally
+    # Width and height may be W/H if the client uses preview_uri literally
     # (it should replace them with integer).
-    if width in ["%d", "%(width)d"] and height in ["%d", "%(height)d"]:
+    if width in ["W", "%d", "%(width)d"] and height in ["H", "%d", "%(height)d"]:
         size = 640, 480
     else:
         size = int(width), int(height)
@@ -154,7 +161,8 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
     return response
 
 
-def original(request, uid: str, filename: str) -> FileResponse:
+@api_view(("GET", "HEAD"))
+def original(request, uid: str, filename: str) -> FileResponse | Response:
     """
     Return original file.
     """
@@ -162,8 +170,33 @@ def original(request, uid: str, filename: str) -> FileResponse:
         c = Content.objects.get(uid=uid)
     except Content.DoesNotExist:
         raise Http404
-    response = FileResponse(open(c.file.path, "rb"))
+    try:
+        response = FileResponse(open(c.file.path, "rb"))
+    except FileNotFoundError as err:
+        # This is fatal file path configuration error or file is really not found
+        logging.error(f"Original file for {c.uid} not found: {err}")
+        return Response("Oops, requested file not found in the file system.", status=500)
     response["Content-Type"] = c.mimetype
     disp = "attachment" if "attachment" in request.GET else "inline"
     response["Content-Disposition"] = f'{disp}; filename="{c.originalfilename}"'
+    if c.filetime:
+        response["Last-Modified"] = c.filetime.strftime("%a, %d %b %Y %H:%M:%S %z")
     return response
+
+
+@api_view(("GET", "HEAD"))
+def instance(request, uid: str, extension: str) -> FileResponse:
+    """
+    Return one of video or audio instances.
+    """
+    try:
+        c = Content.objects.get(uid=uid)
+    except Content.DoesNotExist:
+        raise Http404
+    instances = c.videoinstances.filter(extension=extension)
+    if instances:
+        response = FileResponse(open(instances[0].file.path, "rb"))
+        response["Content-Type"] = instances[0].mimetype
+        return response
+    else:
+        raise Http404

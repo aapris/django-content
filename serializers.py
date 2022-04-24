@@ -1,12 +1,31 @@
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
-from content.models import Content
+from content.models import Content, Videoinstance
+
+
+class VideoinstanceSerializer(serializers.HyperlinkedModelSerializer):
+    url = serializers.SerializerMethodField()
+    # Future compatibility, fields will be renamed in some future version
+    created_at = serializers.DateTimeField(source="created")
+
+    def get_url(self, obj):
+        request = self.context.get("request")
+        url = reverse("instance", kwargs={"uid": obj.content.uid, "extension": obj.extension}, request=request)
+        return url
+
+    class Meta:
+        model = Videoinstance
+        fields = ["url", "mimetype", "filesize", "duration", "bitrate", "width", "height", "framerate", "created_at"]
 
 
 class ContentSerializer(serializers.HyperlinkedModelSerializer):
     original_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
+    videoinstances = VideoinstanceSerializer(many=True, read_only=True)
+    # Future compatibility, fields will be renamed in some future version
+    created_at = serializers.DateTimeField(source="created")
+    updated_at = serializers.DateTimeField(source="updated")
 
     def get_original_url(self, obj):
         request = self.context.get("request")
@@ -18,7 +37,7 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
         if obj.preview:
             url = reverse(
                 "preview",
-                kwargs={"uid": obj.uid, "width": "%d", "height": "%d", "action": "", "ext": "jpg"},
+                kwargs={"uid": obj.uid, "width": "W", "height": "H", "action": "", "ext": "jpg"},
                 request=request,
             )
         else:
@@ -29,19 +48,20 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
         model = Content
         fields = [
             "uid",
-            "original_url",
-            "preview_url",
             "title",
             "caption",
             "author",
+            "original_url",
+            "preview_url",
+            "videoinstances",
             "originalfilename",
             "filesize",
             "filetime",
             "sha1",
             "point",
             "mimetype",
-            "created",
-            "updated",
+            "created_at",
+            "updated_at",
         ]
 
     def create(self, validated_data):
