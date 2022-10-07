@@ -14,7 +14,7 @@ def handle_uploaded_file(request, destination=None):
         filedata = request.FILES[inputfile]
         # original_filename = filedata.name
         if destination is None:
-            destination = open(tmp_name, 'wb')
+            destination = open(tmp_name, "wb")
         for chunk in filedata.chunks():
             destination.write(chunk)
         destination.close()
