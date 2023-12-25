@@ -12,8 +12,9 @@ admin.site.register(Content, ContentAdmin)
 """
 
 from django.contrib import admin
-from .models import Group
+
 from .models import Content
+from .models import Group
 from .models import Mail
 
 
@@ -28,7 +29,7 @@ admin.site.register(Group, GroupAdmin)
 
 
 class ContentAdmin(admin.ModelAdmin):
-    search_fields = ("title", "caption", "mimetype", )
+    search_fields = ("title", "caption", "mimetype")
     list_display = ("mimetype", "title", "caption", "filesize", "created", "updated")
     ordering = ("-created",)
 

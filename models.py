@@ -20,8 +20,6 @@ import tempfile
 
 # Because we have local class Image, we can't import literally Image from PIL
 import PIL.Image
-from pillow_heif import register_heif_opener
-
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -34,6 +32,7 @@ from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Manager  # https://stackoverflow.com/a/48894881
 from django.utils.translation import gettext_lazy as _
+from pillow_heif import register_heif_opener
 
 import content.filetools as filetools
 from content.filetools import do_video_thumbnail
@@ -52,7 +51,7 @@ mail_storage = FileSystemStorage(location=settings.MAIL_CONTENT_DIR)
 # TODO: replace with getattr
 try:
     THUMBNAIL_PARAMETERS = settings.CONTENT_THUMBNAIL_PARAMETERS
-except:
+except Exception:  # noqa
     THUMBNAIL_PARAMETERS = (1600, 1600, "JPEG", 90)  # w, h, format, quality
 
 CONTENT_PRIVACY_CHOICES = (("PRIVATE", _("Private")), ("RESTRICTED", _("Group")), ("PUBLIC", _("Public")))
@@ -80,7 +79,7 @@ def upload_split_by_1000(obj, filename):
         raise ValueError("Couldn't find id for Content, is it saved successfully?")
     longid = f"{id_:09d}"  # e.g. '000012345'
     chunkindex = [i for i in range(0, len(longid) - 3, 3)]  # -> [0, 3, 6]
-    path = os.sep.join([longid[j: j + 3] for j in chunkindex] + [filename])  # -> '000/012/000012345-uid.ext'
+    path = os.sep.join([longid[j : j + 3] for j in chunkindex] + [filename])  # -> '000/012/000012345-uid.ext'
     return path
 
 
@@ -230,12 +229,12 @@ class Content(models.Model):
         self.save()
 
     def set_file(
-            self,
-            originalfilename: str,
-            filecontent: UploadedFile | io.IOBase | str,
-            mimetype: str = None,
-            md5: str = None,
-            sha1: str = None,
+        self,
+        originalfilename: str,
+        filecontent: UploadedFile | io.IOBase | str,
+        mimetype: str = None,
+        md5: str = None,
+        sha1: str = None,
     ):
         """
         Save Content.file and all it's related fields
@@ -336,7 +335,7 @@ class Content(models.Model):
             fd, tmp_name = tempfile.mkstemp()  # Remember to close fd!
             tmp_name += ".png"
             if do_pdf_thumbnail(self.file.path, tmp_name):
-                postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)
+                postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)  # noqa
                 filename = "{:09d}-{}-{}.png".format(self.id, self.uid, postfix)
                 if os.path.isfile(tmp_name):
                     with open(tmp_name, "rb") as f:
@@ -444,7 +443,7 @@ class Image(models.Model):
                     self.rotate = 90
                 elif orientation == 8:
                     self.rotate = 270
-        except Exception as err:  # No exif orientation available
+        except Exception:  # No exif orientation available
             # TODO: log error
             pass
 
@@ -652,6 +651,7 @@ class Uploadinfo(models.Model):
     All possible information of the client who uploaded the Content file.
     Usage: Uploadinfo.create(c, request).save()
     """
+
     content = models.OneToOneField(Content, primary_key=True, editable=False, on_delete=models.CASCADE)
     sessionid = models.CharField(max_length=200, blank=True, editable=False)
     ip = models.GenericIPAddressField(blank=True, null=True, editable=False)
