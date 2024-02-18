@@ -335,7 +335,10 @@ class Content(models.Model):
             fd, tmp_name = tempfile.mkstemp()  # Remember to close fd!
             tmp_name += ".png"
             if do_pdf_thumbnail(self.file.path, tmp_name):
-                postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)  # noqa
+                t = THUMBNAIL_PARAMETERS
+                postfix = "{}-{}-{}x{}".format(t[0], t[1], t[2], t[3])
+                # print(THUMBNAIL_PARAMETERS)
+                # postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)  # noqa
                 filename = "{:09d}-{}-{}.png".format(self.id, self.uid, postfix)
                 if os.path.isfile(tmp_name):
                     with open(tmp_name, "rb") as f:
@@ -473,7 +476,7 @@ class Image(models.Model):
             im = im.transpose(PIL.Image.ROTATE_180)
         elif self.rotate == 270:
             im = im.transpose(PIL.Image.ROTATE_90)
-        im.thumbnail(size, PIL.Image.ANTIALIAS)
+        im.thumbnail(size, PIL.Image.LANCZOS)
         # Save resized image to a temporary buffer
         tmp = io.BytesIO()
         im.save(tmp, "jpeg", quality=t[3])

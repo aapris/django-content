@@ -12,6 +12,7 @@ def handle_uploaded_file(request, destination=None):
     for inputfile in request.FILES:
         tmp_file, tmp_name = tempfile.mkstemp()
         filedata = request.FILES[inputfile]
+        print(inputfile, filedata, tmp_name)
         # original_filename = filedata.name
         if destination is None:
             destination = open(tmp_name, "wb")

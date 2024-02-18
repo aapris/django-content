@@ -131,7 +131,7 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
         crop_size = int(max(im.size) / side_divider) + 1
         # print shorter_side, side_divider, im.size, crop_size
         size = (crop_size, crop_size)
-        im.thumbnail(size, PIL.Image.ANTIALIAS)
+        im.thumbnail(size, PIL.Image.LANCZOS)
         margin = (max(im.size) - min(im.size)) / 2
         crop_size = min(im.size)
         if im.size[0] > im.size[1]:  # horizontal
@@ -140,7 +140,7 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
             crop = [0, 0 + margin, crop_size, margin + crop_size]
         im = im.crop(crop)
     else:
-        im.thumbnail(size, PIL.Image.ANTIALIAS)
+        im.thumbnail(size, PIL.Image.LANCZOS)
     response = HttpResponse()
     tmp = io.BytesIO()
     if thumb_format == "png":

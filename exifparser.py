@@ -231,7 +231,7 @@ def main():
     for filepath in sys.argv[1:]:
         exif = read_exif(filepath)
         gps = parse_gps(exif)
-        print(filepath, gps)
+        print(filepath, exif)
         print(parse_datetime(exif, tag_name="EXIF DateTimeOriginal", gps=gps))
 
 

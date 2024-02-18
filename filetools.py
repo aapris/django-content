@@ -18,11 +18,11 @@ import magic
 from PIL import Image
 from dateutil import parser
 from iptcinfo3 import IPTCInfo
+from pillow_heif import register_heif_opener
 
-from content.exifparser import read_exif, parse_datetime, parse_gps
+from .exifparser import read_exif, parse_datetime, parse_gps
 
-
-# from .exifparser import read_exif, parse_datetime, parse_gps
+register_heif_opener()
 
 
 class FFProbe:
@@ -314,7 +314,7 @@ def fileinfo(filepath: str) -> dict:
             info = get_imageinfo(filepath)
             if "exif" in info:
                 del info["exif"]
-        except IOError:  # is not image
+        except IOError:  # is not an image
             pass
     else:
         pass
@@ -398,7 +398,8 @@ def do_pdf_thumbnail(src: str, target: str) -> bool:
             return True
         else:
             return False
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as err:
+        logging.error("Subprocess error: {}".format(err))
         # TODO: log file and error here.
         return False
 
@@ -439,4 +440,5 @@ if __name__ == "__main__":
     for path in sys.argv[1:]:
         print(path)
         pprint(fileinfo(path))
+        pprint(get_imageinfo(path))
         create_thumbnail(path, (400, 400, None, 80, 0))
