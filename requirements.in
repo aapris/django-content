@@ -1,4 +1,4 @@
-exifread
+exifread<3.0.0  # 3.0.0 breaks the HEIC support
 python-magic
 iptcinfo3
 pillow
