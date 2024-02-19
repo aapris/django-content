@@ -18,7 +18,6 @@ dependencies = [
     "pillow",
     "pillow-heif",
     "python-magic",
-    "timezonefinder",
 ]
 
 
