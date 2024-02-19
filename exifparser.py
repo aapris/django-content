@@ -19,7 +19,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 import exifread
-import timezonefinder
+# import timezonefinder
 
 log = logging.getLogger("exifparser")
 
@@ -197,10 +197,10 @@ def parse_datetime(exif: dict, tag_name="EXIF DateTimeOriginal", gps=None) -> di
         try:
             data["creation_time"] = datetime.datetime.strptime(val, "%Y:%m:%d %H:%M:%S")
             # Determine timezone from latitude and longitude, if they are present
-            if gps is not None and "lat" in gps and "lon" in gps:
-                tf = timezonefinder.TimezoneFinder()
-                tz = tf.timezone_at(lng=gps["lon"], lat=gps["lat"])
-                data["creation_time"] = data["creation_time"].replace(tzinfo=ZoneInfo(tz))
+            # if gps is not None and "lat" in gps and "lon" in gps:
+            #     tf = timezonefinder.TimezoneFinder()
+            #     tz = tf.timezone_at(lng=gps["lon"], lat=gps["lat"])
+            #     data["creation_time"] = data["creation_time"].replace(tzinfo=ZoneInfo(tz))
         except ValueError as err:  # E.g. value is '0000:00:00 00:00:00\x00'
             log.warning("parse_datetime({}) failed: {}".format(orig_val, err))
         except TypeError as err:  # E.g. value is '4:24:26\x002004:06:25 0'
