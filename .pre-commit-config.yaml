@@ -21,3 +21,9 @@ repos:
     rev: v7.5.0
     hooks:
       - id: pip-compile
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v1.18.1'
+    hooks:
+      - id: mypy
+        additional_dependencies: [django-stubs, types-requests]
