@@ -3,6 +3,7 @@ Read as much metadata from a file as possible. Mainly usable with
 media files (image, video, audio files), but can do also video and pdf
 thumbnail.
 """
+
 import datetime
 import hashlib
 import io
@@ -15,12 +16,14 @@ import tempfile
 from typing import Tuple
 
 import magic
-from PIL import Image
 from dateutil import parser
 from iptcinfo3 import IPTCInfo
+from pdf2image import convert_from_path
+from PIL import Image
 from pillow_heif import register_heif_opener
 
-from .exifparser import read_exif, parse_datetime, parse_gps
+from .exifparser import parse_datetime, parse_gps, read_exif
+
 
 register_heif_opener()
 
@@ -66,12 +69,12 @@ class FFProbe:
             output = subprocess.check_output(command, stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as err:  # Probably file not found
             # TODO: log file and error here.
-            logging.error("Subprocess error: {}".format(err, " ".join(command)))
+            logging.error("Subprocess error: {} Command: {}".format(err, " ".join(command)))
             output = "{}"  # empty json object
             # raise
         except OSError as err:  # Probably executable was not found
             # TODO: log file and error here.
-            logging.error("OSError: {}".format(err, " ".join(command)))
+            logging.error("OSError: {} Command: {}".format(err, " ".join(command)))
             raise
         self.data = json.loads(output)
         # print(json.dumps(self.data, indent=1))
@@ -211,20 +214,18 @@ class FFProbe:
         return info
 
 
-def hashfile(filepath: str) -> Tuple[str, str]:
+def hashfile(filepath: str) -> str:
     """
-    Return md5 and sha1 hashes of file in hex format
+    Return sha1 hash of file in hex format
     """
-    block_size = 65536
-    md5 = hashlib.md5()
+    block_size = 2**16  # 65536
     sha1 = hashlib.sha1()
     with open(filepath, "rb") as f:
         buf = f.read(block_size)
         while len(buf) > 0:
-            md5.update(buf)
             sha1.update(buf)
             buf = f.read(block_size)
-    return md5.hexdigest(), sha1.hexdigest()
+    return sha1.hexdigest()
 
 
 def guess_encoding(b: bytes) -> str:
@@ -385,22 +386,27 @@ def do_video_thumbnail(src: str, target: str, sec=1.0):
 def do_pdf_thumbnail(src: str, target: str) -> bool:
     """
     Create a thumbnail from a PDF file 'src' and save it to 'target'.
-    Return True if subprocess returns with error code 0 and target exits.
+    Uses pdf2image library for better quality and reliability than ImageMagick.
+    Return True if successful, False otherwise.
     """
-    convert = "convert"
-    # convert -flatten  -geometry 1000x1000 foo.pdf[0] thumb.png
     try:
-        cmd = [convert, "-flatten", "-geometry", "1000x1000", src + "[0]", target]
-        logging.debug(cmd)
-        subprocess.check_call(cmd, stderr=subprocess.DEVNULL)
-        # TODO: check also that target is really non-broken file
-        if os.path.isfile(target):  # TODO: check that size > 0 ?
-            return True
+        images = convert_from_path(
+            src,
+            size=(1000, 1000),  # Max size, maintains aspect ratio
+            first_page=1,  # First page (1-indexed)
+            last_page=1,  # Only first page
+            fmt="png",  # Output format
+            strict=True,  # Strict mode for better error handling
+        )
+        if images:
+            images[0].save(target, "PNG")
+            logging.debug(f"Successfully created PDF thumbnail: {src} -> {target}")
+            return os.path.isfile(target) and os.path.getsize(target) > 0
         else:
+            logging.error(f"No images generated from PDF: {src}")
             return False
-    except subprocess.CalledProcessError as err:
-        logging.error("Subprocess error: {}".format(err))
-        # TODO: log file and error here.
+    except Exception as err:
+        logging.error(f"Error creating PDF thumbnail for {src}: {err}")
         return False
 
 
