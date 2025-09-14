@@ -10,7 +10,6 @@ about duration, bitrate, dimensions etc.
 # TODO: make Geo features optional, e.g. create conditional point field
 from __future__ import annotations
 
-import hashlib
 import io
 import logging
 import mimetypes
@@ -20,6 +19,7 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
+from typing import Any, Optional, Tuple, Union
 
 # Because we have local class Image, we can't import literally Image from PIL
 import PIL.Image
@@ -56,15 +56,20 @@ mail_storage = FileSystemStorage(location=settings.MAIL_CONTENT_DIR)
 # TODO: replace with getattr
 try:
     THUMBNAIL_PARAMETERS = settings.CONTENT_THUMBNAIL_PARAMETERS
-except Exception:  # noqa
+except AttributeError:
     THUMBNAIL_PARAMETERS = (1600, 1600, "JPEG", 90)  # w, h, format, quality
 
 CONTENT_PRIVACY_CHOICES = (("PRIVATE", _("Private")), ("RESTRICTED", _("Group")), ("PUBLIC", _("Public")))
 
 register_heif_opener()
 
+# Constants
+DEFAULT_UID_LENGTH = 12
+FILE_PATH_CHECK_THRESHOLD = 1000  # Threshold for determining if content is file path vs file data
+TEMP_DIR_NAME = "temp"
 
-def upload_split_by_1000(obj, filename):
+
+def upload_split_by_1000(obj: Any, filename: str) -> str:
     """
     Return the path where the original file will be saved.
     Files are split into a directory hierarchy, which bases on object's id,
@@ -74,6 +79,14 @@ def upload_split_by_1000(obj, filename):
     get one level deeper, e.g. id=10**9 -> 100/000/000/filename
     This should not clash with existing filenames.
     """
+    # Validate filename for security
+    if not filename or ".." in filename or filename.startswith("/"):
+        raise ValueError(f"Invalid filename: {filename}")
+
+    # Sanitize filename - remove path separators and control characters
+    filename = Path(filename).name
+    if not filename:
+        raise ValueError("Filename cannot be empty after sanitization")
     if hasattr(obj, "content"):
         id_ = obj.content.id
         uid = obj.content.uid
@@ -84,7 +97,7 @@ def upload_split_by_1000(obj, filename):
     if id_ is None:
         # Use UID for new objects that haven't been saved yet
         # This creates a temporary path that will be corrected by post_save signal
-        return f"temp/{uid}/{filename}"
+        return f"{TEMP_DIR_NAME}/{uid}/{filename}"
 
     # Create proper filename: {id:09d}-{uid}.ext
     # But preserve quality parameters if they exist (for preview/thumbnail files)
@@ -100,30 +113,34 @@ def upload_split_by_1000(obj, filename):
         # Standard content file, create proper filename
         proper_filename = f"{id_:09d}-{uid}{ext.lower()}"
 
-    longid = f"{id_:09d}"  # e.g. '000012345'
-    chunkindex = [i for i in range(0, len(longid) - 3, 3)]  # -> [0, 3, 6]
-    path = Path(*[longid[j : j + 3] for j in chunkindex], proper_filename)  # -> '000/012/000012345-uid.ext'
+    long_id = f"{id_:09d}"  # e.g. '000012345'
+    chunk_indices = [i for i in range(0, len(long_id) - 3, 3)]  # -> [0, 3, 6]
+    path = Path(*[long_id[j : j + 3] for j in chunk_indices], proper_filename)  # -> '000/012/000012345-uid.ext'
     return str(path)
 
 
-def get_uid(length=12):
+def get_uid(length: int = DEFAULT_UID_LENGTH) -> str:
     """
     Generate and return a random string which can be considered unique.
     Default length is 12 characters from set [a-zA-Z0-9].
     """
-    alphanum = string.ascii_lowercase + string.digits
-    return "".join([alphanum[random.randint(0, len(alphanum) - 1)] for i in range(length)])
+    alphanumeric_chars = string.ascii_lowercase + string.digits
+    return "".join(random.choice(alphanumeric_chars) for _ in range(length))
 
 
 class Group(models.Model):
-    """ """
+    """Content group model for organizing content access permissions.
+
+    Groups allow organizing users and controlling access to content files.
+    Each group has a name, slug, description and associated users.
+    """
 
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100)
     description = models.TextField()
     users = models.ManyToManyField(User, blank=True, editable=True, related_name="contentgroups")
-    created = models.DateTimeField(auto_now_add=True, editable=False)
-    updated = models.DateTimeField(auto_now=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
 
     def __str__(self):
         return self.slug
@@ -139,16 +156,15 @@ class Content(models.Model):
     uid - unique random identifier string
     user - Django User, if relevant
     group -
-    originalfilename - original filename
-    filesize - file size of original file in bytes
+    original_filename - original filename
+    file_size - file size of original file in bytes
     filetime - creation time of original file (e.g. EXIF timestamp)
     mimetype - Official MIME Media Type (e.g. image/jpeg, video/mp4)
     file - original file object
     preview - thumbnail object if relevant
-    md5 - md5 of original file in hex-format
     sha1 - sha1 of original file in hex-format
-    created - creation timestamp
-    updated - last update timestamp
+    created_at - creation timestamp
+    updated_at - last update timestamp
     opens - optional timestamp after which this Content is available
     expires - optional timestamp after which this object isn't available
     peers = Content's peers, if relevant
@@ -174,15 +190,14 @@ class Content(models.Model):
     uid = models.CharField(max_length=40, unique=True, db_index=True, default=get_uid, editable=False)
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.SET_NULL)
     group = models.ForeignKey(Group, blank=True, null=True, on_delete=models.SET_NULL)
-    originalfilename = models.CharField(
+    original_filename = models.CharField(
         max_length=256, null=True, verbose_name=_("Original file name"), editable=False
     )
-    filesize = models.IntegerField(null=True, editable=False)
+    file_size = models.IntegerField(null=True, editable=False)
     filetime = models.DateTimeField(blank=True, null=True, editable=False)
     mimetype = models.CharField(max_length=200, null=True, editable=False)
     file = models.FileField(storage=content_storage, upload_to=upload_split_by_1000)  # , editable=False)
     preview = models.ImageField(storage=preview_storage, blank=True, upload_to=upload_split_by_1000, editable=False)
-    md5 = models.CharField(max_length=32, null=True, editable=False)
     sha1 = models.CharField(max_length=40, null=True, editable=False)
 
     # license
@@ -205,8 +220,8 @@ class Content(models.Model):
     keywords = models.CharField(max_length=500, blank=True, verbose_name=_("Keywords"))
     # TODO: to be removed (text fields are implemented elsewhere
     place = models.CharField(max_length=500, blank=True, verbose_name=_("Place"))
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     opens = models.DateTimeField(blank=True, null=True)
     expires = models.DateTimeField(blank=True, null=True)
 
@@ -218,26 +233,26 @@ class Content(models.Model):
     objects = Manager()
 
     # TODO: replace this with property stuff
-    def latlon(self):
+    def latlon(self) -> Optional[Tuple[float, float]]:
         # FIXME: should this be lonlat?
         return self.point.coords if self.point else None
 
-    def set_latlon(self, lat, lon):
+    def set_latlon(self, lat: float, lon: float) -> None:
         p = Point(lon, lat)
         self.point = p
         self.point_geom = p
 
-    def save_file(self, originalfilename: str, filecontent: UploadedFile | io.IOBase | str):
+    def save_file(self, original_filename: str, filecontent: Union[UploadedFile, io.IOBase, str]) -> None:
         """
-        Save filecontent to the filesystem and fill filename, filesize fields.
+        Save filecontent to the filesystem and fill filename, file_size fields.
         filecontent may be
         - open file handle (opened in "rb"-mode)
         - existing file name (full path)
         - raw file data
         """
         # TODO: check functionality with very large files
-        path_obj = Path(originalfilename)
-        self.originalfilename = path_obj.name
+        path_obj = Path(original_filename)
+        self.original_filename = path_obj.name
         self.save()  # Must save here to get self.id
         ext = path_obj.suffix
         filename = "{:09d}-{}{}".format(self.id, self.uid, ext.lower())
@@ -245,34 +260,33 @@ class Content(models.Model):
             self.file.save(filename, File(filecontent))
         elif isinstance(filecontent, io.IOBase):  # Is open file
             self.file.save(filename, File(filecontent))
-        elif len(filecontent) < 1000 and Path(filecontent).is_file():
+        elif len(filecontent) < FILE_PATH_CHECK_THRESHOLD and Path(filecontent).is_file():
             # Is existing file in file system
             with open(filecontent, "rb") as f:
                 self.file.save(filename, File(f))
         else:  # Is just something in the memory
             self.file.save(filename, ContentFile(filecontent))
-        self.filesize = self.file.size
+        self.file_size = self.file.size
         self.save()
 
     def set_file(
         self,
-        originalfilename: str,
-        filecontent: UploadedFile | io.IOBase | str,
-        mimetype: str = None,
-        md5: str = None,
-        sha1: str = None,
-    ):
+        original_filename: str,
+        filecontent: Union[UploadedFile, io.IOBase, str],
+        mimetype: Optional[str] = None,
+        sha1: Optional[str] = None,
+    ) -> None:
         """
         Save Content.file and all it's related fields
-        (filename, filesize, mimetype, md5, sha1).
+        (filename, file_size, mimetype, sha1).
         'filecontent' may be
         - open file handle (opened in "rb"-mode)
         - existing file name (full path)
         - raw file data
         """
-        self.save_file(originalfilename, filecontent)
-        if md5 is None or sha1 is None:
-            self.md5, self.sha1 = filetools.hashfile(self.file.path)
+        self.save_file(original_filename, filecontent)
+        if sha1 is None:
+            self.sha1 = filetools.hashfile(self.file.path)
         if mimetype:
             self.mimetype = mimetype
         else:
@@ -281,14 +295,18 @@ class Content(models.Model):
             if mime:
                 self.mimetype = mime
             else:
-                self.mimetype = mimetypes.guess_type(originalfilename)[0]
+                self.mimetype = mimetypes.guess_type(original_filename)[0]
         self.status = "PROCESSED"
         self.save()
 
-    def set_fileinfo(self, mime: str = None):
-        """
-        Create (or update if it already exists) Content.video/audio/image.
-        Save width, height, duration, bitrate where appropriate.
+    def set_fileinfo(self, mime: Optional[str] = None) -> Optional[Union["Image", "Video", "Audio"]]:
+        """Create or update Content metadata objects (Image/Video/Audio).
+
+        Args:
+            mime: MIME type of the file. If None, uses self.mimetype.
+
+        Returns:
+            Created or updated Image, Video, or Audio object, or None if not applicable.
         """
         if mime is None:
             mime = self.mimetype
@@ -332,10 +350,15 @@ class Content(models.Model):
         info = filetools.get_imageinfo(self.file.path)
         return info
 
-    def generate_thumbnail(self):
-        """
-        Generates the file to preview field for Videos, Images and PDFs.
-        TODO: use only content.preview for thumbnails, not video/image.thumbnail
+    def generate_thumbnail(self) -> None:
+        """Generate preview thumbnail for the content file.
+
+        Creates thumbnails for images, videos, and PDF files and saves them
+        to the preview field. The thumbnail generation method depends on the
+        file's MIME type.
+
+        Note:
+            TODO: use only content.preview for thumbnails, not video/image.thumbnail
         """
         # TODO: create generic thumbnail functions for video, image and pdf
         if self.mimetype.startswith("image"):
@@ -422,8 +445,8 @@ class Content(models.Model):
         if not is_new:
             # Check if file has changed by comparing with database version
             try:
-                old_instance = Content.objects.get(pk=self.pk)
-                file_changed = old_instance.file != self.file
+                old_file_name = Content.objects.values_list("file", flat=True).get(pk=self.pk)
+                file_changed = old_file_name != self.file.name if self.file else False
             except Content.DoesNotExist:
                 file_changed = True
         else:
@@ -455,19 +478,19 @@ class Content(models.Model):
                 if mime and not self.mimetype:
                     self.mimetype = mime
                 elif not self.mimetype:
-                    self.mimetype = mimetypes.guess_type(self.originalfilename or "")[0]
+                    self.mimetype = mimetypes.guess_type(self.original_filename or "")[0]
 
                 # Set original filename if not already set
-                if not self.originalfilename and self.file:
-                    self.originalfilename = Path(self.file.name).name
+                if not self.original_filename and self.file:
+                    self.original_filename = Path(self.file.name).name
 
                 # Set file size if not already set
-                if not self.filesize and self.file:
-                    self.filesize = self.file.size
+                if not self.file_size and self.file:
+                    self.file_size = self.file.size
 
                 # Generate hash values if not already set
-                if not self.md5 or not self.sha1:
-                    self.md5, self.sha1 = filetools.hashfile(self.file.path)
+                if not self.sha1:
+                    self.sha1 = filetools.hashfile(self.file.path)
 
                 # Set file info (creates Image/Video/Audio objects)
                 self.set_fileinfo(mime=mime)
@@ -482,11 +505,10 @@ class Content(models.Model):
                 # Save again if we made changes
                 super().save(
                     update_fields=[
-                        "originalfilename",
-                        "filesize",
+                        "original_filename",
+                        "file_size",
                         "filetime",
                         "mimetype",
-                        "md5",
                         "sha1",
                         "status",
                         "point",
@@ -494,9 +516,13 @@ class Content(models.Model):
                     ]
                 )
 
-            except Exception as e:
+            except (IOError, OSError, ValueError, AttributeError) as e:
                 # Log error but don't prevent saving
-                logging.error(f"Error processing file metadata for Content {self.pk}: {e}")
+                logging.error(
+                    f"Error processing file metadata for Content {self.pk} "
+                    f"({self.original_filename or 'unknown'}): {e}",
+                    exc_info=True,
+                )
                 self.status = "FAILED"
                 super().save(update_fields=["status"])
 
@@ -520,7 +546,7 @@ class Content(models.Model):
 
     def __str__(self):
         text = self.caption[:50] if self.caption else self.title
-        return f'"{text}" {self.mimetype}  ({self.filesize}B)'
+        return f'"{text}" {self.mimetype}  ({self.file_size}B)'
 
 
 class Image(models.Model):
@@ -566,12 +592,16 @@ class Image(models.Model):
                     self.rotate = 90
                 elif orientation == 8:
                     self.rotate = 270
-        except Exception:  # No exif orientation available
-            # TODO: log error
+        except (KeyError, AttributeError, IndexError) as e:  # No exif orientation available
+            # EXIF orientation data not available or malformed
+            logging.debug(
+                f"No EXIF orientation data available for content {self.content.id} "
+                f"({self.content.original_filename}): {e}"
+            )
             pass
 
     def __str__(self):
-        return "Image: {} ({}x{}px)".format(self.content.originalfilename, self.width, self.height)
+        return "Image: {} ({}x{}px)".format(self.content.original_filename, self.width, self.height)
 
     def generate_thumb(self, image, thumbfield, t):
         # TODO: move the general part outside of the model
@@ -584,8 +614,10 @@ class Image(models.Model):
             thumbfield.delete()  # Delete possible previous version
         try:
             im = image.copy()
-        except IOError:  # Image file is corrupted
-            logging.warning(f"Failed to generate_thumb() content id = {self.content.id} {self.content.file}")
+        except IOError as e:  # Image file is corrupted
+            logging.warning(
+                f"Failed to generate thumbnail for content {self.content.id} ({self.content.original_filename}): {e}"
+            )
             return False
         if im.mode not in ("L", "RGB"):
             im = im.convert("RGB")
@@ -644,7 +676,7 @@ class Video(models.Model):
     thumbnail = models.ImageField(storage=preview_storage, upload_to=upload_split_by_1000, editable=False)
 
     def __str__(self):
-        return f"Video: {self.content.originalfilename}"
+        return f"Video: {self.content.original_filename}"
 
     def set_metadata(self, data):
         # if "gps" in data:
@@ -690,7 +722,7 @@ class Videoinstance(models.Model):
 
     content = models.ForeignKey(Content, editable=False, on_delete=models.CASCADE, related_name="videoinstances")
     mimetype = models.CharField(max_length=200, editable=False)
-    filesize = models.IntegerField(blank=True, null=True, editable=False)
+    file_size = models.IntegerField(blank=True, null=True, editable=False)
     duration = models.FloatField(blank=True, null=True, editable=False)
     bitrate = models.FloatField(blank=True, null=True, editable=False)
     extension = models.CharField(max_length=16, editable=False)
@@ -699,7 +731,7 @@ class Videoinstance(models.Model):
     framerate = models.FloatField(blank=True, null=True, editable=False)
     file = models.FileField(storage=video_storage, upload_to=upload_split_by_1000, editable=False)
     command = models.CharField(max_length=2000, editable=False)
-    created = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def set_file(self, filepath, ext):
         """Copy temporary file to video storage."""
@@ -707,7 +739,7 @@ class Videoinstance(models.Model):
         filename = "{:09d}-{}.{}".format(self.id, self.content.uid, ext)
         with open(filepath, "rb") as f:
             self.file.save(filename, File(f))
-            self.filesize = self.file.size
+            self.file_size = self.file.size
             self.extension = ext
         self.save()
 
@@ -733,7 +765,7 @@ class Audio(models.Model):
         self.bitrate = data.get("bitrate")
 
     def __str__(self):
-        s = "Audio: {}".format(self.content.originalfilename)
+        s = "Audio: {}".format(self.content.original_filename)
         s += " ({:.2f} sec)".format(self.duration if self.duration else -1.0)
         return s
 
@@ -748,20 +780,20 @@ class Audioinstance(models.Model):
 
     content = models.ForeignKey(Content, editable=False, on_delete=models.CASCADE, related_name="audioinstances")
     mimetype = models.CharField(max_length=200, editable=False)
-    filesize = models.IntegerField(blank=True, null=True, editable=False)
+    file_size = models.IntegerField(blank=True, null=True, editable=False)
     duration = models.FloatField(blank=True, null=True, editable=False)
     bitrate = models.FloatField(blank=True, null=True, editable=False)
     extension = models.CharField(max_length=16, editable=False)
     file = models.FileField(storage=audio_storage, upload_to=upload_split_by_1000, editable=False)
     command = models.CharField(max_length=2000, editable=False)
-    created = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def set_file(self, filepath, ext):
         self.mimetype = get_mimetype(filepath)
         filename = "{:09d}-{}.{}".format(self.id, self.content.uid, ext)
         with open(filepath, "rb") as f:
             self.file.save(filename, File(f))
-            self.filesize = self.file.size
+            self.file_size = self.file.size
             self.extension = ext
         self.save()
 
@@ -799,59 +831,6 @@ class Uploadinfo(models.Model):
         self.useragent = request.META.get("HTTP_USER_AGENT", "")[:500]
 
 
-class Mail(models.Model):
-    """
-    Retrieved Mail files
-    """
-
-    status = models.CharField(
-        max_length=40,
-        default="UNPROCESSED",
-        editable=True,
-        choices=(
-            ("UNPROCESSED", "UNPROCESSED"),
-            ("PROCESSED", "PROCESSED"),
-            ("DUPLICATE", "DUPLICATE"),
-            ("FAILED", "FAILED"),
-        ),
-    )
-    filesize = models.IntegerField(null=True, editable=False)
-    file = models.FileField(storage=mail_storage, upload_to=upload_split_by_1000, editable=False)
-    md5 = models.CharField(max_length=32, db_index=True, editable=False)
-    sha1 = models.CharField(max_length=40, db_index=True, editable=False)
-    created = models.DateTimeField(auto_now_add=True)
-    processed = models.DateTimeField(null=True)
-
-    def set_file(self, filecontent, host):
-        """
-        Set Content.file and all it's related fields.
-        filecontent may be
-        - open file handle (opened in "rb"-mode)
-        - existing file name (full path)
-        - raw file data
-        NOTE: this reads all file content into memory
-        """
-        if isinstance(filecontent, io.IOBase):
-            filecontent.seek(0)
-            filedata = filecontent.read()
-        elif len(filecontent) < 1000 and Path(filecontent).is_file():
-            with open(filecontent, "rb") as f:
-                filedata = f.read()
-        else:
-            filedata = filecontent
-        self.md5 = hashlib.md5(filedata).hexdigest()
-        self.sha1 = hashlib.sha1(filedata).hexdigest()
-        self.save()  # Must save here to get self.id
-        # root, ext = Path(originalfilename).stem, Path(originalfilename).suffix
-        filename = "{:09d}-{}".format(self.id, host)
-        self.file.save(filename, ContentFile(filedata))
-        self.filesize = self.file.size
-        cnt = Mail.objects.filter(md5=self.md5).filter(sha1=self.sha1).count()
-        if cnt > 1:
-            self.status = "DUPLICATE"
-        self.save()
-
-
 # Signal handlers
 @receiver(post_save, sender=Content)
 def move_file_to_correct_location(sender, instance, created, **kwargs):
@@ -866,7 +845,7 @@ def move_file_to_correct_location(sender, instance, created, **kwargs):
         if "temp" in current_path.parts:
             # Generate correct path now that we have ID
             # Use original filename to generate proper path with correct naming
-            original_filename = instance.originalfilename or current_path.name
+            original_filename = instance.original_filename or current_path.name
             correct_path = upload_split_by_1000(instance, original_filename)
 
             # Create new file path using pathlib
