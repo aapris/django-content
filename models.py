@@ -3,6 +3,7 @@ Defines all supported different content type classes (image, video, audio etc.)
 If file type is not supported, it is saved "as is", without any metadata
 about duration, bitrate, dimensions etc.
 """
+
 # TODO: implement Image/Video/Audio Instance classes, which save conversions
 # to different formats and sizes (e.g. audio->mp3+ogg, video->mp4+theora).
 # TODO: possibility to save more than one thumbnails of a video?
@@ -15,8 +16,10 @@ import logging
 import mimetypes
 import os
 import random
+import shutil
 import string
 import tempfile
+from pathlib import Path
 
 # Because we have local class Image, we can't import literally Image from PIL
 import PIL.Image
@@ -31,12 +34,14 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Manager  # https://stackoverflow.com/a/48894881
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from pillow_heif import register_heif_opener
 
 import content.filetools as filetools
-from content.filetools import do_video_thumbnail
-from content.filetools import get_mimetype, do_pdf_thumbnail
+from content.filetools import do_pdf_thumbnail, do_video_thumbnail, get_mimetype
+
 
 # Original files are saved in content_storage
 content_storage = FileSystemStorage(location=settings.APP_DATA_DIRS["CONTENT"])
@@ -69,18 +74,36 @@ def upload_split_by_1000(obj, filename):
     get one level deeper, e.g. id=10**9 -> 100/000/000/filename
     This should not clash with existing filenames.
     """
-    # obj.save()  # save the object to ensure there is obj.id available
-    # --> maximum recursion depth exceeded while calling a Python object ???
     if hasattr(obj, "content"):
         id_ = obj.content.id
+        uid = obj.content.uid
     else:
         id_ = obj.id
+        uid = obj.uid
+
     if id_ is None:
-        raise ValueError("Couldn't find id for Content, is it saved successfully?")
+        # Use UID for new objects that haven't been saved yet
+        # This creates a temporary path that will be corrected by post_save signal
+        return f"temp/{uid}/{filename}"
+
+    # Create proper filename: {id:09d}-{uid}.ext
+    # But preserve quality parameters if they exist (for preview/thumbnail files)
+    path_obj = Path(filename)
+    ext = path_obj.suffix
+
+    # Check if filename already has quality parameters (e.g. "000000002-uid-1600-1600-JPEGx90.jpg")
+    # This happens when Image/Video models explicitly set thumbnail filename
+    if f"{id_:09d}-{uid}" in filename:
+        # Filename already properly formatted, use as is
+        proper_filename = filename
+    else:
+        # Standard content file, create proper filename
+        proper_filename = f"{id_:09d}-{uid}{ext.lower()}"
+
     longid = f"{id_:09d}"  # e.g. '000012345'
     chunkindex = [i for i in range(0, len(longid) - 3, 3)]  # -> [0, 3, 6]
-    path = os.sep.join([longid[j : j + 3] for j in chunkindex] + [filename])  # -> '000/012/000012345-uid.ext'
-    return path
+    path = Path(*[longid[j : j + 3] for j in chunkindex], proper_filename)  # -> '000/012/000012345-uid.ext'
+    return str(path)
 
 
 def get_uid(length=12):
@@ -151,7 +174,9 @@ class Content(models.Model):
     uid = models.CharField(max_length=40, unique=True, db_index=True, default=get_uid, editable=False)
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.SET_NULL)
     group = models.ForeignKey(Group, blank=True, null=True, on_delete=models.SET_NULL)
-    originalfilename = models.CharField(max_length=256, null=True, verbose_name=_("Original file name"), editable=False)
+    originalfilename = models.CharField(
+        max_length=256, null=True, verbose_name=_("Original file name"), editable=False
+    )
     filesize = models.IntegerField(null=True, editable=False)
     filetime = models.DateTimeField(blank=True, null=True, editable=False)
     mimetype = models.CharField(max_length=200, null=True, editable=False)
@@ -211,15 +236,16 @@ class Content(models.Model):
         - raw file data
         """
         # TODO: check functionality with very large files
-        self.originalfilename = os.path.basename(originalfilename)
+        path_obj = Path(originalfilename)
+        self.originalfilename = path_obj.name
         self.save()  # Must save here to get self.id
-        root, ext = os.path.splitext(originalfilename)
+        ext = path_obj.suffix
         filename = "{:09d}-{}{}".format(self.id, self.uid, ext.lower())
         if isinstance(filecontent, UploadedFile):  # Is an open file
             self.file.save(filename, File(filecontent))
         elif isinstance(filecontent, io.IOBase):  # Is open file
             self.file.save(filename, File(filecontent))
-        elif len(filecontent) < 1000 and os.path.isfile(filecontent):
+        elif len(filecontent) < 1000 and Path(filecontent).is_file():
             # Is existing file in file system
             with open(filecontent, "rb") as f:
                 self.file.save(filename, File(f))
@@ -340,11 +366,12 @@ class Content(models.Model):
                 # print(THUMBNAIL_PARAMETERS)
                 # postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)  # noqa
                 filename = "{:09d}-{}-{}.png".format(self.id, self.uid, postfix)
-                if os.path.isfile(tmp_name):
+                tmp_path = Path(tmp_name)
+                if tmp_path.is_file():
                     with open(tmp_name, "rb") as f:
                         self.preview.save(filename, File(f))
                     self.save()
-                    os.unlink(tmp_name)
+                    tmp_path.unlink()
             os.close(fd)
         else:
             return None
@@ -353,9 +380,11 @@ class Content(models.Model):
         """Return the file extension of preview if it exists."""
         # TODO: use pathlib
         if self.preview:
-            root, ext = os.path.splitext(self.preview.path)
+            path_obj = Path(self.preview.path)
+            ext = path_obj.suffix
         else:
-            root, ext = os.path.splitext(self.file.path)
+            path_obj = Path(self.file.path)
+            ext = path_obj.suffix
         return ext.lstrip(".")
 
     def thumbnail(self):
@@ -380,6 +409,97 @@ class Content(models.Model):
         else:
             return None
 
+    def save(self, *args, **kwargs):
+        """
+        Override save() to automatically process file metadata when a new file is uploaded.
+        This ensures that set_fileinfo() and generate_thumbnail() are called regardless
+        of how the Content object is saved (admin, API, etc.).
+        """
+        # Check if this is a new object or if the file has changed
+        file_changed = False
+        is_new = self.pk is None
+
+        if not is_new:
+            # Check if file has changed by comparing with database version
+            try:
+                old_instance = Content.objects.get(pk=self.pk)
+                file_changed = old_instance.file != self.file
+            except Content.DoesNotExist:
+                file_changed = True
+        else:
+            # New object with a file
+            file_changed = bool(self.file)
+
+        # Call the original save method first
+        super().save(*args, **kwargs)
+
+        # Process file metadata if file is new or changed
+        if file_changed and self.file:
+            try:
+                # Extract and save file metadata
+                info = filetools.fileinfo(self.file.path)
+
+                # Set GPS coordinates if available
+                if "gps" in info:
+                    if "lat" in info["gps"] and self.point is None:
+                        self.set_latlon(info["gps"]["lat"], info["gps"]["lon"])
+                    if "gpstime" in info["gps"] and self.filetime is None:
+                        self.filetime = info["gps"]["gpstime"]
+
+                # Set creation time if not already set
+                if self.filetime is None and "creation_time" in info:
+                    self.filetime = info.get("creation_time")
+
+                # Get and set mimetype
+                mime = info.get("mimetype")
+                if mime and not self.mimetype:
+                    self.mimetype = mime
+                elif not self.mimetype:
+                    self.mimetype = mimetypes.guess_type(self.originalfilename or "")[0]
+
+                # Set original filename if not already set
+                if not self.originalfilename and self.file:
+                    self.originalfilename = Path(self.file.name).name
+
+                # Set file size if not already set
+                if not self.filesize and self.file:
+                    self.filesize = self.file.size
+
+                # Generate hash values if not already set
+                if not self.md5 or not self.sha1:
+                    self.md5, self.sha1 = filetools.hashfile(self.file.path)
+
+                # Set file info (creates Image/Video/Audio objects)
+                self.set_fileinfo(mime=mime)
+
+                # Generate thumbnail
+                self.generate_thumbnail()
+
+                # Update status
+                if self.status == "UNPROCESSED":
+                    self.status = "PROCESSED"
+
+                # Save again if we made changes
+                super().save(
+                    update_fields=[
+                        "originalfilename",
+                        "filesize",
+                        "filetime",
+                        "mimetype",
+                        "md5",
+                        "sha1",
+                        "status",
+                        "point",
+                        "point_geom",
+                    ]
+                )
+
+            except Exception as e:
+                # Log error but don't prevent saving
+                logging.error(f"Error processing file metadata for Content {self.pk}: {e}")
+                self.status = "FAILED"
+                super().save(update_fields=["status"])
+
     def delete(self, *args, **kwargs):
         """
         Set Content.status = "DELETE". Real deletion (referencing Videos and
@@ -389,10 +509,10 @@ class Content(models.Model):
         if kwargs.get("purge", False) is True and self.status == "DELETED":
             # TODO:
             # for f in [self.file, self.preview]:
-            #    if os.path.isfile(f):
-            #        os.unlink(f)
+            #    if Path(f).is_file():
+            #        Path(f).unlink()
             # Delete all instance files too
-            print("REALLY DELETING HERE ALL INSTANCES " "AND FILES FROM FILESYSTEM")
+            print("REALLY DELETING HERE ALL INSTANCES AND FILES FROM FILESYSTEM")
             # Super.delete
         else:
             self.status = "DELETED"
@@ -545,11 +665,12 @@ class Video(models.Model):
                 t = THUMBNAIL_PARAMETERS
                 postfix = "{}-{}-{}x{}".format(t[0], t[1], t[2], t[3])
                 filename = "{:09d}-{}-{}.jpg".format(self.content.id, self.content.uid, postfix)
-                if os.path.isfile(tmp_name):
+                tmp_path = Path(tmp_name)
+                if tmp_path.is_file():
                     with open(tmp_name, "rb") as f:
                         self.thumbnail.save(filename, File(f))
                     self.save()
-                    os.unlink(tmp_name)
+                    tmp_path.unlink()
             os.close(fd)
 
 
@@ -713,7 +834,7 @@ class Mail(models.Model):
         if isinstance(filecontent, io.IOBase):
             filecontent.seek(0)
             filedata = filecontent.read()
-        elif len(filecontent) < 1000 and os.path.isfile(filecontent):
+        elif len(filecontent) < 1000 and Path(filecontent).is_file():
             with open(filecontent, "rb") as f:
                 filedata = f.read()
         else:
@@ -721,7 +842,7 @@ class Mail(models.Model):
         self.md5 = hashlib.md5(filedata).hexdigest()
         self.sha1 = hashlib.sha1(filedata).hexdigest()
         self.save()  # Must save here to get self.id
-        # root, ext = os.path.splitext(originalfilename)
+        # root, ext = Path(originalfilename).stem, Path(originalfilename).suffix
         filename = "{:09d}-{}".format(self.id, host)
         self.file.save(filename, ContentFile(filedata))
         self.filesize = self.file.size
@@ -729,3 +850,47 @@ class Mail(models.Model):
         if cnt > 1:
             self.status = "DUPLICATE"
         self.save()
+
+
+# Signal handlers
+@receiver(post_save, sender=Content)
+def move_file_to_correct_location(sender, instance, created, **kwargs):
+    """
+    Move file from temp location to correct ID-based location after save.
+    Uses pathlib for all file operations.
+    """
+    if created and instance.file:
+        current_path = Path(instance.file.path)
+
+        # Check if file is in temp location
+        if "temp" in current_path.parts:
+            # Generate correct path now that we have ID
+            # Use original filename to generate proper path with correct naming
+            original_filename = instance.originalfilename or current_path.name
+            correct_path = upload_split_by_1000(instance, original_filename)
+
+            # Create new file path using pathlib
+            storage_location = Path(instance.file.storage.location)
+            new_file_path = storage_location / correct_path
+
+            # Create directories if needed
+            new_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Move file using shutil
+            shutil.move(str(current_path), str(new_file_path))
+
+            # Update file field (without triggering save recursion)
+            instance.file.name = correct_path
+            Content.objects.filter(pk=instance.pk).update(file=correct_path)
+
+            # Clean up temp directory if empty
+            try:
+                temp_dir = current_path.parent
+                # Only remove if directory is empty
+                temp_dir.rmdir()
+                # Also try to remove parent temp directory if empty
+                if temp_dir.parent.name == "temp":
+                    temp_dir.parent.rmdir()
+            except OSError:
+                # Directory not empty or other error - ignore
+                pass
