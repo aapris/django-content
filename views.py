@@ -1,19 +1,16 @@
-from __future__ import annotations
-
 import io
 import logging
 import os
 
 import PIL.Image
+from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import get_object_or_404
 from PIL import ImageDraw, ImageFont
-from django.http import Http404, HttpResponse, FileResponse
-from rest_framework import mixins, viewsets
-from rest_framework import parsers
+from rest_framework import mixins, parsers, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 # from rest_framework import permissions
-
 from content.models import Content
 from content.serializers import ContentSerializer
 
@@ -26,7 +23,7 @@ class ContentViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     API endpoint that allows Contents to be created, viewed or edited.
     """
 
-    queryset = Content.objects.all().order_by("-created")
+    queryset = Content.objects.all().order_by("-created_at")
     serializer_class = ContentSerializer
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.FileUploadParser]
 
@@ -84,10 +81,7 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
     action can be '-crop'
     """
     thumbnail = None
-    try:
-        content = Content.objects.get(uid=uid)
-    except Content.DoesNotExist:
-        raise Http404
+    content = get_object_or_404(Content, uid=uid)
     # Find thumbnail, currently new place is content.preview, but content.image.thumbnail is still in use
     if content.preview:
         thumbnail = content.preview
@@ -155,9 +149,9 @@ def preview(request, uid: str, width: int | str, height: int | str, action=None,
     response["Content-Length"] = len(data)
     response["Accept-Ranges"] = "bytes"
     if "attachment" in request.GET:
-        response["Content-Disposition"] = "attachment; filename=%s-%s.jpg" % (content.originalfilename, content.uid)
+        response["Content-Disposition"] = "attachment; filename=%s-%s.jpg" % (content.original_filename, content.uid)
     # Use 'updated' time in Last-Modified header (cache_page uses caching page)
-    response["Last-Modified"] = content.updated.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    response["Last-Modified"] = content.updated_at.strftime("%a, %d %b %Y %H:%M:%S GMT")
     return response
 
 
@@ -166,10 +160,7 @@ def original(request, uid: str, filename: str) -> FileResponse | Response:
     """
     Return original file.
     """
-    try:
-        c = Content.objects.get(uid=uid)
-    except Content.DoesNotExist:
-        raise Http404
+    c = get_object_or_404(Content, uid=uid)
     try:
         response = FileResponse(open(c.file.path, "rb"))
     except (FileNotFoundError, ValueError) as err:
@@ -178,7 +169,7 @@ def original(request, uid: str, filename: str) -> FileResponse | Response:
         return Response("Oops, requested file not found in the file system.", status=500)
     response["Content-Type"] = c.mimetype
     disp = "attachment" if "attachment" in request.GET else "inline"
-    response["Content-Disposition"] = f'{disp}; filename="{c.originalfilename}"'
+    response["Content-Disposition"] = f'{disp}; filename="{c.original_filename}"'
     if c.filetime:
         response["Last-Modified"] = c.filetime.strftime("%a, %d %b %Y %H:%M:%S %z")
     return response
@@ -189,10 +180,7 @@ def instance(request, uid: str, extension: str) -> FileResponse:
     """
     Return one of video or audio instances.
     """
-    try:
-        c = Content.objects.get(uid=uid)
-    except Content.DoesNotExist:
-        raise Http404
+    c = get_object_or_404(Content, uid=uid)
     instances = c.videoinstances.filter(extension=extension)
     if instances:
         response = FileResponse(open(instances[0].file.path, "rb"))
