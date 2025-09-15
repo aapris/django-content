@@ -16,20 +16,28 @@ class VideoinstanceSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Videoinstance
-        fields = ["url", "mimetype", "filesize", "duration", "bitrate", "width", "height", "framerate", "created_at"]
+        fields = ["url", "mimetype", "file_size", "duration", "bitrate", "width", "height", "framerate", "created_at"]
 
 
 class ContentSerializer(serializers.HyperlinkedModelSerializer):
+    url = serializers.SerializerMethodField()
     original_url = serializers.SerializerMethodField()
     preview_url = serializers.SerializerMethodField()
     videoinstances = VideoinstanceSerializer(many=True, read_only=True)
+    geometry = serializers.SerializerMethodField()
     # Future compatibility, fields will be renamed in some future version
     created_at = serializers.DateTimeField(source="created", read_only=True)
     updated_at = serializers.DateTimeField(source="updated", read_only=True)
 
+    def get_url(self, obj):
+        request = self.context.get("request")
+        # Use the original URL as the main API endpoint for now
+        # In the future, this could point to a proper REST API endpoint
+        return reverse("original", kwargs={"uid": obj.uid, "filename": obj.original_filename}, request=request)
+
     def get_original_url(self, obj):
         request = self.context.get("request")
-        url = reverse("original", kwargs={"uid": obj.uid, "filename": obj.originalfilename}, request=request)
+        url = reverse("original", kwargs={"uid": obj.uid, "filename": obj.original_filename}, request=request)
         return url
 
     def get_preview_url(self, obj: Content):
@@ -37,28 +45,38 @@ class ContentSerializer(serializers.HyperlinkedModelSerializer):
         if obj.preview:
             url = reverse(
                 "preview",
-                kwargs={"uid": obj.uid, "width": "W", "height": "H", "action": "", "ext": "jpg"},
+                kwargs={"uid": obj.uid, "width": "W", "height": "H", "action": "-thumb", "ext": "jpg"},
                 request=request,
             )
         else:
             url = None
         return url
 
+    def get_geometry(self, obj: Content):
+        """Convert Django Point to GeoJSON geometry format"""
+        if obj.point:
+            return {
+                "type": "Point",
+                "coordinates": [obj.point.x, obj.point.y],  # [longitude, latitude]
+            }
+        return None
+
     class Meta:
         model = Content
         fields = [
             "uid",
+            "url",
             "title",
             "caption",
             "author",
             "original_url",
             "preview_url",
             "videoinstances",
-            "originalfilename",
-            "filesize",
+            "original_filename",
+            "file_size",
             "filetime",
             "sha1",
-            "point",
+            "geometry",
             "mimetype",
             "created_at",
             "updated_at",
