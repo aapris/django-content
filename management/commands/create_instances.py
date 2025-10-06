@@ -5,10 +5,10 @@ from django.conf import settings
 from django.core.management.base import BaseCommand  # CommandError
 from django.db.models import Q  # Count, Avg, Max, Min
 
-import content.filetools
-from content.filetools import create_videoinstance, create_audioinstance
-from content.models import Content
-from content.models import Videoinstance, Audioinstance
+from content import filemetadata
+from content.filetools import create_audioinstance, create_videoinstance
+from content.models import Audioinstance, Content, Videoinstance
+
 
 settings.DEBUG = False  # TODO: remove
 
@@ -38,7 +38,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
             else:
                 log.debug(f"{c} has already {len(old_instances)} instances")
                 continue
-        ffp = content.filetools.FFProbe(c.file.path)
+        ffp = filemetadata.FFProbe(c.file.path)
         if ffp.is_video():
             # scale = "scale=640:trunc(ow/a/2)*2"  # scale width to 640 px
             scale = "scale=trunc(oh*a/2)*2:360"  # scale height to 360 px (360p)
@@ -53,7 +53,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
             for x in params:
                 ext, mimetype, param = x
                 new_video, cmd_str, output = create_videoinstance(c.file.path, param, ext=ext)
-                ffp2 = content.filetools.FFProbe(new_video)
+                ffp2 = filemetadata.FFProbe(new_video)
                 info = ffp2.get_videoinfo()
                 if not info:
                     msg = f"ffmpeg video instance command failed: {cmd_str}"
@@ -63,7 +63,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
                 vi = Videoinstance(content=c, command=cmd_str)
                 vi.save()
                 vi.set_file(new_video, ext)
-                ffp2 = content.filetools.FFProbe(vi.file.path)
+                ffp2 = filemetadata.FFProbe(vi.file.path)
                 info = ffp2.get_videoinfo()
                 vi.set_metadata(info)
                 vi.save()
@@ -76,7 +76,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
             for x in params:
                 ext, mimetype, param = x
                 new_video, cmd_str, output = create_audioinstance(c.file.path, param, ext=ext)
-                ffp2 = content.filetools.FFProbe(new_video)
+                ffp2 = filemetadata.FFProbe(new_video)
                 info = ffp2.get_audioinfo()
                 if not info:
                     msg = f"ffmpeg audio instance command failed: {cmd_str}"
@@ -88,7 +88,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
                 ai.save()
                 ai.set_file(new_video, ext)
 
-                ffp2 = content.filetools.FFProbe(ai.file.path)
+                ffp2 = filemetadata.FFProbe(ai.file.path)
                 info = ffp2.get_audioinfo()
                 ai.set_metadata(info)
                 if "mimetype" in info:
@@ -97,7 +97,7 @@ def create_instances(limit: int, pk: int, uid: str, redo: bool):
 
 
 class Command(BaseCommand):
-    help = "Create different video and audio instances from original " "media file"
+    help = "Create different video and audio instances from original media file"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -115,7 +115,7 @@ class Command(BaseCommand):
             "--types",
             action="store_true",
             dest="simulate",
-            help="Process content but do not flag it processed, also " "do not save actual files to the database",
+            help="Process content but do not flag it processed, also do not save actual files to the database",
         )
         parser.add_argument("--pk", action="store", dest="pk", help="Process only Content with given PK (id)")
         parser.add_argument("--uid", action="store", dest="uid", help="Process only Content with given UID")

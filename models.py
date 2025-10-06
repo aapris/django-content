@@ -7,8 +7,6 @@ about duration, bitrate, dimensions etc.
 # TODO: implement Image/Video/Audio Instance classes, which save conversions
 # to different formats and sizes (e.g. audio->mp3+ogg, video->mp4+theora).
 # TODO: possibility to save more than one thumbnails of a video?
-# TODO: make Geo features optional, e.g. create conditional point field
-from __future__ import annotations
 
 import io
 import logging
@@ -19,7 +17,7 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 # Because we have local class Image, we can't import literally Image from PIL
 import PIL.Image
@@ -39,8 +37,9 @@ from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from pillow_heif import register_heif_opener
 
-import content.filetools as filetools
-from content.filetools import do_pdf_thumbnail, do_video_thumbnail, get_mimetype
+# Import metadata extraction and file utilities
+from content import filemetadata
+from content.filetools import do_pdf_thumbnail, do_video_thumbnail
 
 
 # Original files are saved in content_storage
@@ -54,10 +53,9 @@ mail_storage = FileSystemStorage(location=settings.MAIL_CONTENT_DIR)
 
 # define this in local_settings, if you want to change this
 # TODO: replace with getattr
-try:
-    THUMBNAIL_PARAMETERS = settings.CONTENT_THUMBNAIL_PARAMETERS
-except AttributeError:
-    THUMBNAIL_PARAMETERS = (1600, 1600, "JPEG", 90)  # w, h, format, quality
+THUMBNAIL_PARAMETERS = getattr(
+    settings, "CONTENT_THUMBNAIL_PARAMETERS", (1600, 1600, "JPEG", 90)
+)  # w, h, format, quality
 
 CONTENT_PRIVACY_CHOICES = (("PRIVATE", _("Private")), ("RESTRICTED", _("Group")), ("PUBLIC", _("Public")))
 
@@ -142,7 +140,7 @@ class Group(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True, editable=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.slug
 
 
@@ -172,10 +170,6 @@ class Content(models.Model):
     linktype - information of the type of child-parent relation
     point = models.PointField(geography=True, blank=True, null=True)
 
-    It would be useful to save
-    Uploadinfo, if the content is saved via HTTP like this:
-    Uploadinfo.create(c, request).save()
-
     title - title text of this Content, a few words max
     caption - descriptive text of this Content
     author - Content author's name or nickname
@@ -200,8 +194,6 @@ class Content(models.Model):
     preview = models.ImageField(storage=preview_storage, blank=True, upload_to=upload_split_by_1000, editable=False)
     sha1 = models.CharField(max_length=40, null=True, editable=False)
 
-    # license
-    # origin, e.g. City museum, John Smith's photo album
     # Links and relations to other content files
     peers = models.ManyToManyField("self", blank=True, editable=False)
     parent = models.ForeignKey("self", blank=True, null=True, editable=False, on_delete=models.SET_NULL)
@@ -210,15 +202,10 @@ class Content(models.Model):
     point = models.PointField(geography=True, blank=True, null=True)
     # point_geom (geometry) is used to enable e.g. within queries
     point_geom = models.PointField(blank=True, null=True)
-    # TODO: to be removed (text fields are implemented elsewhere
     title = models.CharField(max_length=200, blank=True, verbose_name=_("Title"))
-    # TODO: to be removed (text fields are implemented elsewhere
     caption = models.TextField(blank=True, verbose_name=_("Caption"))
-    # TODO: to be removed (text fields are implemented elsewhere
     author = models.CharField(max_length=200, blank=True, verbose_name=_("Author"))
-    # TODO: to be removed (text fields are implemented elsewhere
     keywords = models.CharField(max_length=500, blank=True, verbose_name=_("Keywords"))
-    # TODO: to be removed (text fields are implemented elsewhere
     place = models.CharField(max_length=500, blank=True, verbose_name=_("Place"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -235,7 +222,11 @@ class Content(models.Model):
     # TODO: replace this with property stuff
     def latlon(self) -> Optional[Tuple[float, float]]:
         # FIXME: should this be lonlat?
-        return self.point.coords if self.point else None
+        if self.point and hasattr(self.point, "coords"):
+            coords = self.point.coords
+            if len(coords) >= 2:
+                return (coords[0], coords[1])
+        return None
 
     def set_latlon(self, lat: float, lon: float) -> None:
         p = Point(lon, lat)
@@ -259,11 +250,15 @@ class Content(models.Model):
         if isinstance(filecontent, UploadedFile):  # Is an open file
             self.file.save(filename, File(filecontent))
         elif isinstance(filecontent, io.IOBase):  # Is open file
-            self.file.save(filename, File(filecontent))
+            # Type ignore for Django File constructor compatibility
+            self.file.save(filename, File(filecontent))  # type: ignore[arg-type]
         elif len(filecontent) < FILE_PATH_CHECK_THRESHOLD and Path(filecontent).is_file():
             # Is existing file in file system
             with open(filecontent, "rb") as f:
                 self.file.save(filename, File(f))
+        elif len(filecontent) < FILE_PATH_CHECK_THRESHOLD:
+            # Looks like a file path but file doesn't exist
+            raise FileNotFoundError(f"File not found: {filecontent}")
         else:  # Is just something in the memory
             self.file.save(filename, ContentFile(filecontent))
         self.file_size = self.file.size
@@ -286,12 +281,11 @@ class Content(models.Model):
         """
         self.save_file(original_filename, filecontent)
         if sha1 is None:
-            self.sha1 = filetools.hashfile(self.file.path)
+            self.sha1 = filemetadata.hashfile(self.file.path)
         if mimetype:
             self.mimetype = mimetype
         else:
-            info = filetools.fileinfo(self.file.path)
-            mime = info["mimetype"]
+            mime = filemetadata.get_mimetype(self.file.path)
             if mime:
                 self.mimetype = mime
             else:
@@ -310,27 +304,33 @@ class Content(models.Model):
         """
         if mime is None:
             mime = self.mimetype
-        obj = info = None
-        if mime.startswith("image"):
-            info = filetools.get_imageinfo(self.file.path)
-            try:
-                obj = self.image
-            except Image.DoesNotExist:
-                obj = Image(content=self)
-        elif mime.startswith("video"):
-            ffp = filetools.FFProbe(self.file.path)
-            info = ffp.get_videoinfo()
-            try:
-                obj = self.video
-            except Video.DoesNotExist:
-                obj = Video(content=self)
-        elif mime.startswith("audio"):
-            ffp = filetools.FFProbe(self.file.path)
-            info = ffp.get_audioinfo()
-            try:
-                obj = self.audio
-            except Audio.DoesNotExist:
-                obj = Audio(content=self)
+        obj: Optional[Union["Image", "Video", "Audio"]] = None
+        info: Optional[Dict[str, Any]] = None
+        try:
+            # Use unified metadata extraction
+            info = filemetadata.get_metadata(self.file.path, mime)
+
+            # Create appropriate model based on MIME type
+            if mime and mime.startswith("image"):
+                try:
+                    obj = self.image
+                except Image.DoesNotExist:
+                    obj = Image(content=self)
+            elif mime and mime.startswith("video"):
+                try:
+                    obj = self.video
+                except Video.DoesNotExist:
+                    obj = Video(content=self)
+            elif mime and mime.startswith("audio"):
+                try:
+                    obj = self.audio
+                except Audio.DoesNotExist:
+                    obj = Audio(content=self)
+        except Exception as e:
+            # Log error but continue gracefully
+            logging.error(f"Error extracting file metadata for {self.file.path}: {e}")
+            return None
+
         if obj and info:
             obj.set_metadata(info)
             obj.save()  # Save new instance to the database
@@ -345,9 +345,10 @@ class Content(models.Model):
                     self.filetime = info.get("creation_time")
             self.save()
             return obj
+        return None
 
     def get_fileinfo(self):
-        info = filetools.get_imageinfo(self.file.path)
+        info = filemetadata.get_metadata(self.file.path)
         return info
 
     def generate_thumbnail(self) -> None:
@@ -361,45 +362,50 @@ class Content(models.Model):
             TODO: use only content.preview for thumbnails, not video/image.thumbnail
         """
         # TODO: create generic thumbnail functions for video, image and pdf
-        if self.mimetype.startswith("image"):
-            try:
-                im = PIL.Image.open(self.file.path)
-                self.image.generate_thumb(im, self.image.thumbnail, THUMBNAIL_PARAMETERS)
-                if self.image.thumbnail:
-                    self.preview = self.image.thumbnail
-                    self.save()
-            except Image.DoesNotExist:
-                pass
-        elif self.mimetype.startswith("video"):
-            try:
-                if self.video.thumbnail:
-                    self.video.thumbnail.delete()
-                self.video.generate_thumb()
-                if self.video.thumbnail:
-                    self.preview = self.video.thumbnail
-                    self.save()
-            except Video.DoesNotExist:
-                pass
-        elif self.mimetype.startswith("application/pdf"):
-            fd, tmp_name = tempfile.mkstemp()  # Remember to close fd!
-            tmp_name += ".png"
-            if do_pdf_thumbnail(self.file.path, tmp_name):
-                t = THUMBNAIL_PARAMETERS
-                postfix = "{}-{}-{}x{}".format(t[0], t[1], t[2], t[3])
-                # print(THUMBNAIL_PARAMETERS)
-                # postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)  # noqa
-                filename = "{:09d}-{}-{}.png".format(self.id, self.uid, postfix)
-                tmp_path = Path(tmp_name)
-                if tmp_path.is_file():
-                    with open(tmp_name, "rb") as f:
-                        self.preview.save(filename, File(f))
-                    self.save()
-                    tmp_path.unlink()
-            os.close(fd)
-        else:
+        try:
+            if self.mimetype and self.mimetype.startswith("image"):
+                try:
+                    im = PIL.Image.open(self.file.path)
+                    self.image.generate_thumb(im, self.image.thumbnail, THUMBNAIL_PARAMETERS)
+                    if self.image.thumbnail:
+                        self.preview = self.image.thumbnail
+                        self.save()
+                except Image.DoesNotExist:
+                    pass
+            elif self.mimetype and self.mimetype.startswith("video"):
+                try:
+                    if self.video.thumbnail:
+                        self.video.thumbnail.delete()
+                    self.video.generate_thumb()
+                    if self.video.thumbnail:
+                        self.preview = self.video.thumbnail
+                        self.save()
+                except Video.DoesNotExist:
+                    pass
+            elif self.mimetype and self.mimetype.startswith("application/pdf"):
+                fd, tmp_name = tempfile.mkstemp()  # Remember to close fd!
+                tmp_name += ".png"
+                if do_pdf_thumbnail(self.file.path, tmp_name):
+                    t = THUMBNAIL_PARAMETERS
+                    postfix = "{}-{}-{}x{}".format(t[0], t[1], t[2], t[3])
+                    # print(THUMBNAIL_PARAMETERS)
+                    # postfix = "{}-{}-{}x{}".format(THUMBNAIL_PARAMETERS)  # noqa
+                    filename = "{:09d}-{}-{}.png".format(self.id, self.uid, postfix)
+                    tmp_path = Path(tmp_name)
+                    if tmp_path.is_file():
+                        with open(tmp_name, "rb") as f:
+                            self.preview.save(filename, File(f))
+                        self.save()
+                        tmp_path.unlink()
+                os.close(fd)
+            else:
+                return None
+        except Exception as e:
+            # Log error but don't crash
+            logging.error(f"Error generating thumbnail for {self.file.path}: {e}")
             return None
 
-    def preview_ext(self):
+    def preview_ext(self) -> str:
         """Return the file extension of preview if it exists."""
         # TODO: use pathlib
         if self.preview:
@@ -410,7 +416,7 @@ class Content(models.Model):
             ext = path_obj.suffix
         return ext.lstrip(".")
 
-    def thumbnail(self):
+    def thumbnail(self) -> Optional[Any]:
         """
         Return thumbnail if it exists.
         Thumbnail is always an image (can be shown with <img> tag).
@@ -432,7 +438,7 @@ class Content(models.Model):
         else:
             return None
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """
         Override save() to automatically process file metadata when a new file is uploaded.
         This ensures that set_fileinfo() and generate_thumbnail() are called regardless
@@ -460,7 +466,7 @@ class Content(models.Model):
         if file_changed and self.file:
             try:
                 # Extract and save file metadata
-                info = filetools.fileinfo(self.file.path)
+                info = filemetadata.get_metadata(self.file.path)
 
                 # Set GPS coordinates if available
                 if "gps" in info:
@@ -490,7 +496,7 @@ class Content(models.Model):
 
                 # Generate hash values if not already set
                 if not self.sha1:
-                    self.sha1 = filetools.hashfile(self.file.path)
+                    self.sha1 = filemetadata.hashfile(self.file.path)
 
                 # Set file info (creates Image/Video/Audio objects)
                 self.set_fileinfo(mime=mime)
@@ -526,7 +532,7 @@ class Content(models.Model):
                 self.status = "FAILED"
                 super().save(update_fields=["status"])
 
-    def delete(self, *args, **kwargs):
+    def delete(self, *args: Any, **kwargs: Any) -> None:
         """
         Set Content.status = "DELETE". Real deletion (referencing Videos and
         Audios, Video and AudioInstances) can be done later e.g. with
@@ -544,7 +550,7 @@ class Content(models.Model):
             self.status = "DELETED"
             self.save()
 
-    def __str__(self):
+    def __str__(self) -> str:
         text = self.caption[:50] if self.caption else self.title
         return f'"{text}" {self.mimetype}  ({self.file_size}B)'
 
@@ -558,13 +564,13 @@ class Image(models.Model):
     thumbnail = models.ImageField(storage=preview_storage, upload_to=upload_split_by_1000, editable=False)
 
     # FIXME: this is probably not in use
-    def orientation(self):
-        if self.width > self.height:
+    def orientation(self) -> str:
+        if self.width and self.height and self.width > self.height:
             return "horizontal"
         else:
             return "vertical"
 
-    def set_metadata(self, info):
+    def set_metadata(self, info: Dict[str, Any]) -> None:
         self.width = info.get("width")
         self.height = info.get("height")
         # if "gps" in info:
@@ -600,10 +606,10 @@ class Image(models.Model):
             )
             pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "Image: {} ({}x{}px)".format(self.content.original_filename, self.width, self.height)
 
-    def generate_thumb(self, image, thumbfield, t):
+    def generate_thumb(self, image: PIL.Image.Image, thumbfield: Any, t: Tuple[int, int, str, int]) -> bool:
         # TODO: move the general part outside of the model
         # TODO: do thumbnail out side of save() !
         """
@@ -640,11 +646,11 @@ class Image(models.Model):
         thumbfield.save(filename, ContentFile(data))
         return True
 
-    def re_generate_thumb(self):
+    def re_generate_thumb(self) -> None:
         im = PIL.Image.open(self.content.file.path)
         self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         im = None
         if self.content.file is not None and (self.width is None or self.height is None):
             try:
@@ -657,7 +663,6 @@ class Image(models.Model):
         if im:
             self.generate_thumb(im, self.thumbnail, THUMBNAIL_PARAMETERS)
         # TODO: author and other keys, see filetools.get_imageinfo
-        # and iptcinfo.py
         super().save(*args, **kwargs)
         self.content.status = "PROCESSED"
         self.content.save()
@@ -675,10 +680,10 @@ class Video(models.Model):
     bitrate = models.CharField(max_length=256, blank=True, null=True, editable=False)
     thumbnail = models.ImageField(storage=preview_storage, upload_to=upload_split_by_1000, editable=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Video: {self.content.original_filename}"
 
-    def set_metadata(self, data):
+    def set_metadata(self, data: Dict[str, Any]) -> None:
         # if "gps" in data:
         #     if self.content.point is None and "lat" in data["gps"]:
         #         self.content.set_latlon(data["gps"]["lat"], data["gps"]["lon"])
@@ -688,7 +693,7 @@ class Video(models.Model):
         self.duration = data.get("duration")
         self.bitrate = data.get("bitrate")
 
-    def generate_thumb(self):
+    def generate_thumb(self) -> None:
         if self.content.file is not None:  # and \
             # (self.width is None or self.height is None):
             # Create temporary file for thumbnail
@@ -735,7 +740,7 @@ class Videoinstance(models.Model):
 
     def set_file(self, filepath, ext):
         """Copy temporary file to video storage."""
-        self.mimetype = get_mimetype(filepath)
+        self.mimetype = filemetadata.get_mimetype(filepath)
         filename = "{:09d}-{}.{}".format(self.id, self.content.uid, ext)
         with open(filepath, "rb") as f:
             self.file.save(filename, File(f))
@@ -760,11 +765,11 @@ class Audio(models.Model):
     duration = models.FloatField(blank=True, null=True)
     bitrate = models.FloatField(blank=True, null=True, editable=False)
 
-    def set_metadata(self, data):
+    def set_metadata(self, data: Dict[str, Any]) -> None:
         self.duration = data.get("duration")
         self.bitrate = data.get("bitrate")
 
-    def __str__(self):
+    def __str__(self) -> str:
         s = "Audio: {}".format(self.content.original_filename)
         s += " ({:.2f} sec)".format(self.duration if self.duration else -1.0)
         return s
@@ -789,7 +794,7 @@ class Audioinstance(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def set_file(self, filepath, ext):
-        self.mimetype = get_mimetype(filepath)
+        self.mimetype = filemetadata.get_mimetype(filepath)
         filename = "{:09d}-{}.{}".format(self.id, self.content.uid, ext)
         with open(filepath, "rb") as f:
             self.file.save(filename, File(f))
@@ -800,35 +805,6 @@ class Audioinstance(models.Model):
     def set_metadata(self, data):
         self.duration = data.get("duration")
         self.bitrate = data.get("bitrate")
-
-
-class Uploadinfo(models.Model):
-    """
-    All possible information of the client who uploaded the Content file.
-    Usage: Uploadinfo.create(c, request).save()
-    """
-
-    content = models.OneToOneField(Content, primary_key=True, editable=False, on_delete=models.CASCADE)
-    sessionid = models.CharField(max_length=200, blank=True, editable=False)
-    ip = models.GenericIPAddressField(blank=True, null=True, editable=False)
-    useragent = models.CharField(max_length=500, blank=True, editable=False)
-    info = models.TextField(blank=True, editable=True)
-
-    @classmethod
-    def create(cls, content, request):
-        """
-        Shortcut to create and save Uploadinfo in one line, e.g.
-        uli = Uploadinfo.create(c, request)
-        Uploadinfo.create(c, request).save()
-        """
-        uploadinfo = cls(content=content)
-        uploadinfo.set_request_data(request)
-        return uploadinfo
-
-    def set_request_data(self, request):
-        self.sessionid = request.session.session_key if request.session.session_key else ""
-        self.ip = request.META.get("REMOTE_ADDR")
-        self.useragent = request.META.get("HTTP_USER_AGENT", "")[:500]
 
 
 # Signal handlers

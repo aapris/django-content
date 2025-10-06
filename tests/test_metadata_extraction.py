@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from content.filetools import FFProbe
+from content.filemetadata import FFProbe, get_metadata
 from content.models import Content
 
 from .conftest import ContentTestMixin
@@ -33,10 +33,8 @@ class TestMetadataExtraction(ContentTestMixin):
         assert content.image.height > 0
 
         # EXIF data might be available
-        # Check if EXIF data is available through the filetools
-        from content.filetools import get_imageinfo
-
-        image_info = get_imageinfo(str(sample_heic_file))
+        # Check if EXIF data is available through filemetadata
+        image_info = get_metadata(str(sample_heic_file))
         if "exif" in image_info and image_info["exif"]:
             # EXIF data should be available
             assert image_info["exif"] is not None
@@ -264,10 +262,8 @@ class TestMetadataExtraction(ContentTestMixin):
         assert content.image.width > 0
         assert content.image.height > 0
 
-        # Test IPTC metadata extraction using get_imageinfo directly
-        from content.filetools import get_imageinfo
-
-        image_info = get_imageinfo(str(sample_iptc_jpg_file))
+        # Test IPTC metadata extraction using get_metadata directly
+        image_info = get_metadata(str(sample_iptc_jpg_file))
 
         # Test IPTC Caption/Abstract (tag 2:120)
         assert "caption" in image_info
@@ -298,9 +294,7 @@ class TestMetadataExtraction(ContentTestMixin):
         content = create_test_content(sample_iptc_jpg_file, "GPS validation test")
         content_cleanup(content)
 
-        from content.filetools import get_imageinfo
-
-        image_info = get_imageinfo(str(sample_iptc_jpg_file))
+        image_info = get_metadata(str(sample_iptc_jpg_file))
 
         # Should have GPS data
         assert "gps" in image_info
