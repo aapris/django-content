@@ -1,9 +1,11 @@
 """
 Provide urlpatterns for original content file, preview and instances.
 """
+
 from django.urls import path, re_path
 
 from content import views
+
 
 urlpatterns = [
     path("original/<str:uid>/<str:filename>", views.original, name="original"),
